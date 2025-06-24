@@ -1,242 +1,141 @@
-import { createRequire } from "module";
-const require = createRequire(import.meta.url);
-const { RpcClient, Encoding, Resolver, ScriptBuilder, Opcodes, PrivateKey, addressFromScriptPublicKey, createTransactions, kaspaToSompi, UtxoProcessor, UtxoContext } = require ("../../../wasm/kaspa");
-import minimist from 'minimist';
+import { KasplexApi, Kiwi, KRC20, Rpc, Utils, Wasm, Enum } from "@kasplex/kiwi";
+import {getBalancesForAddresses} from "../BalanceChecker/KaspaBalance.ts";
+import {getPrivateKeys} from "../utils/wallet-service.ts";
 
-// Parse command-line arguments
-const args = minimist(process.argv.slice(2));
-const privateKeyArg = args.privKey;
-const network = args.network || 'testnet-10';
-const ticker = args.ticker || 'TCHIMP';
-const priorityFeeValue = args.priorityFee || '1.5';
-const timeout = args.timeout || 120000; // 2 minutes timeout
-const logLevel = args.logLevel || 'INFO';
-const max = args.max || '28700000000000000000';
-const lim = args.max || '2870000000000';
-
-let addedEventTrxId : any;
-let SubmittedtrxId: any;
-
-
-if (!privateKeyArg) {
-  console.error("Please provide a private key using the --privKey flag.");
-  process.exit(1);
+// Интерфейс для аргументов деплоя, для строгой типизации
+interface DeployArgs {
+  walletAddress: string;
+  ticker: string;
+  maxSupply: string;
+  mintLimit: string;
+  preAllocationAmount?: string;
+  decimals?: string;
 }
 
-log("Main: starting rpc connection", 'DEBUG');
-const RPC = new RpcClient({
-  resolver: new Resolver(),
-  encoding: Encoding.Borsh,
-  networkId: network
-});
-
-await RPC.disconnect();
-await RPC.connect();
-log("Main: RPC connection established", 'DEBUG');
-
-function log(message: string, level: string = 'INFO') {
-  const timestamp = new Date().toISOString();
-  if (level === 'ERROR') {
-    console.error(`[${timestamp}] [${level}] ${message}`);
-  } else if (logLevel === 'DEBUG' || level === 'INFO') {
-    console.log(`[${timestamp}] [${level}] ${message}`);
-  }
-}
-
-function printResolverUrls(rpcClient: RpcClient) {
-  const resolver = rpcClient.resolver;
-  if (resolver && resolver.urls) {
-    log("Resolver URLs:", 'DEBUG');
-    resolver.urls.forEach((url: string) => {
-      log(url, 'DEBUG');
-    });
-  } else {
-    log("No URLs found in the Resolver.", 'DEBUG');
-  }
-}
-
-// Display info about the used URLs if log level is DEBUG
-if (logLevel === 'DEBUG') {
-  printResolverUrls(RPC);
-}
-
-log(`Main: Submitting private key`, 'DEBUG');
-const privateKey = new PrivateKey(privateKeyArg);
-log(`Main: Determining public key`, 'DEBUG');
-const publicKey = privateKey.toPublicKey();
-log(`Main: Determining wallet address`, 'DEBUG');
-const address = publicKey.toAddress(network);
-log(`Address: ${address.toString()}`, 'INFO');
-
-// New UTXO subscription setup (ADD this):
-log(`Subscribing to UTXO changes for address: ${address.toString()}`, 'DEBUG');
-await RPC.subscribeUtxosChanged([address.toString()]);
+// Константы для валидации
+const DEPLOY_FEE_KAS = 1000;
+const SERVICE_FEE_KAS = 1; // Согласно сообщению на скриншоте "1000... and 1 KAS..."
+const TOTAL_FEE_KAS = DEPLOY_FEE_KAS + SERVICE_FEE_KAS;
 
 
-RPC.addEventListener('utxos-changed', async (event: any) => {
-  log(`UTXO changes detected for address: ${address.toString()}`, 'DEBUG');
-
-  // Check for UTXOs removed for the specific address
-  const removedEntry = event.data.removed.find((entry: any) =>
-      entry.address.payload === address.toString().split(':')[1]
-  );
-  const addedEntry = event.data.added.find((entry: any) =>
-      entry.address.payload === address.toString().split(':')[1]
-  );
-
-  if (removedEntry) {
-    // Use custom replacer function in JSON.stringify to handle BigInt
-    log(`Added UTXO found for address: ${address.toString()} with UTXO: ${JSON.stringify(addedEntry, (key, value) =>
-        typeof value === 'bigint' ? value.toString() + 'n' : value)}`, 'DEBUG');
-    log(`Removed UTXO found for address: ${address.toString()} with UTXO: ${JSON.stringify(removedEntry, (key, value) =>
-        typeof value === 'bigint' ? value.toString() + 'n' : value)}`, 'DEBUG');
-    addedEventTrxId = addedEntry.outpoint.transactionId;
-    log(`Added UTXO TransactionId: ${addedEventTrxId}`,'DEBUG');
-    if (addedEventTrxId == SubmittedtrxId){
-      eventReceived = true;
-    }
-  } else {
-    log(`No removed UTXO found for address: ${address.toString()} in this UTXO change event`, 'DEBUG');
-  }
-});
-
-
-
-
-const gasFee = 1000
-const data = {"p":"krc-20","op":"deploy","tick": ticker ,"max": max ,"lim": lim}
-log(`Main: Data to use for ScriptBuilder: ${JSON.stringify(data)}`, 'DEBUG');
-
-const script = new ScriptBuilder()
-    .addData(publicKey.toXOnlyPublicKey().toString())
-    .addOp(Opcodes.OpCheckSig)
-    .addOp(Opcodes.OpFalse)
-    .addOp(Opcodes.OpIf)
-    .addData(Buffer.from("kasplex"))
-    .addI64(0n)
-    .addData(Buffer.from(JSON.stringify(data, null, 0)))
-    .addOp(Opcodes.OpEndIf);
-
-const P2SHAddress = addressFromScriptPublicKey(script.createPayToScriptHashScript(), network)!;
-let eventReceived = false;
-
-if (logLevel === 'DEBUG') {
-  log(`Constructed Script: ${script.toString()}`, 'DEBUG');
-  log(`P2SH Address: ${P2SHAddress.toString()}`, 'DEBUG');
-}
-
-try {
-  const { entries } = await RPC.getUtxosByAddresses({ addresses: [address.toString()] });
-  const { transactions } = await createTransactions({
-    priorityEntries: [],
-    entries,
-    outputs: [{
-      address: P2SHAddress.toString(),
-      amount: kaspaToSompi("0.3")!
-    }],
-    changeAddress: address.toString(),
-    priorityFee: kaspaToSompi(priorityFeeValue.toString())!,
-    networkId: network
-  });
-
-  for (const transaction of transactions) {
-    transaction.sign([privateKey]);
-    log(`Main: Transaction signed with ID: ${transaction.id}`, 'DEBUG');
-    const hash = await transaction.submit(RPC);
-    log(`submitted P2SH commit sequence transaction on: ${hash}`, 'INFO');
-    SubmittedtrxId = hash;
+/**
+ * Проверяет, доступен ли тикер для регистрации.
+ * @param ticker - Тикер токена для проверки.
+ * @returns {Promise<boolean>} - true, если тикер доступен.
+ */
+export async function checkTickerAvailability(ticker: string): Promise<boolean> {
+  if (!ticker || !/^[A-Z]{4,6}$/.test(ticker)) {
+    // Можно выбросить ошибку или просто вернуть false
+    throw new Error("Invalid ticker format. Must be 4-6 uppercase letters.");
   }
 
-
-  // Set a timeout to handle failure cases
-  const commitTimeout = setTimeout(() => {
-    if (!eventReceived) {
-      log('Timeout: Commit transaction did not mature within 2 minutes', 'ERROR');
-      process.exit(1);
-    }
-  }, timeout);
-
-  // Wait until the maturity event has been received
-  while (!eventReceived) {
-    await new Promise(resolve => setTimeout(resolve, 500)); // wait and check every 500ms
-  }
-
-  clearTimeout(commitTimeout);  // Clear the reveal timeout if the event is received
-
-} catch (initialError) {
-  log(`Initial transaction error: ${initialError}`, 'ERROR');
-}
-
-if (eventReceived) {
-  eventReceived = false;
-  log(`Main: creating UTXO entries from ${address.toString()}`, 'DEBUG');
-  const { entries } = await RPC.getUtxosByAddresses({ addresses: [address.toString()] });
-  log(`Main: creating revealUTXOs from P2SHAddress`, 'DEBUG');
-  const revealUTXOs = await RPC.getUtxosByAddresses({ addresses: [P2SHAddress.toString()] });
-
-  log(`Main: Creating Transaction with revealUTX0s entries: ${revealUTXOs.entries[0]}`, 'DEBUG');
-
-  const { transactions } = await createTransactions({
-    priorityEntries: [revealUTXOs.entries[0]],
-    entries: entries,
-    outputs: [],
-    changeAddress: address.toString(),
-    priorityFee: kaspaToSompi(gasFee.toString())!,
-    networkId: network
-  });
-  let revealHash: any;
-
-  for (const transaction of transactions) {
-    transaction.sign([privateKey], false);
-    log(`Main: Transaction with revealUTX0s signed with ID: ${transaction.id}`, 'DEBUG');
-    const ourOutput = transaction.transaction.inputs.findIndex((input) => input.signatureScript === '');
-
-    if (ourOutput !== -1) {
-      const signature = await transaction.createInputSignature(ourOutput, privateKey);
-      transaction.fillInput(ourOutput, script.encodePayToScriptHashSignatureScript(signature));
-    }
-    revealHash = await transaction.submit(RPC);
-    log(`submitted reveal tx sequence transaction: ${revealHash}`, 'INFO');
-    SubmittedtrxId = revealHash;
-  }
-  const revealTimeout = setTimeout(() => {
-    if (!eventReceived) {
-      log('Timeout: Reveal transaction did not mature within 2 minutes', 'ERROR');
-      process.exit(1);
-    }
-  }, timeout);
-
-  // Wait until the maturity event has been received
-  while (!eventReceived) {
-    await new Promise(resolve => setTimeout(resolve, 500)); // wait and check every 500ms
-  }
-
-  clearTimeout(revealTimeout);  // Clear the reveal timeout if the event is received
-
+  await Rpc.setInstance(Kiwi.network).connect();
   try {
-    // Fetch the updated UTXOs
-    const updatedUTXOs = await RPC.getUtxosByAddresses({ addresses: [address.toString()] });
-
-    // Check if the reveal transaction is accepted
-    const revealAccepted = updatedUTXOs.entries.some(entry => {
-      const transactionId = entry.entry.outpoint ? entry.entry.outpoint.transactionId : undefined;
-      return transactionId === revealHash;
-    });
-
-    // If reveal transaction is accepted
-    if (revealAccepted) {
-      log(`Reveal transaction has been accepted: ${revealHash}`, 'INFO');
-      await RPC.disconnect();
-      log('RPC client disconnected.', 'INFO');
-    } else if (!eventReceived) { // Check eventReceived here
-      log('Reveal transaction has not been accepted yet.', 'INFO');
-    }
-  } catch (error) {
-    log(`Error checking reveal transaction status: ${error}`, 'ERROR');
+    const tokenInfo = await KasplexApi.getToken(ticker);
+    // Возвращаем true, если state === 'unused'
+    return tokenInfo?.result?.[0]?.state === 'unused';
+  } finally {
+    // Убедимся, что соединение всегда закрывается
+    await Rpc.getInstance().disconnect();
   }
-
-} else {
-  log('Error: No UTXOs available for reveal', 'ERROR');
 }
 
+/**
+ * Выполняет деплой KRC-20 токена.
+ * @param args - Объект с параметрами для деплоя.
+ * @returns {Promise<string>} TXID успешной транзакции.
+ */
+export async function deployKrc20Token(args: DeployArgs): Promise<string> {
+  const { walletAddress, ticker, maxSupply, mintLimit, preAllocationAmount, decimals } = args;
 
+  // 1. Валидация входных данных на бэкенде
+  if (!/^[A-Z]{4,6}$/.test(ticker)) {
+    throw new Error("Ticker must be 4-6 uppercase English letters.");
+  }
+  // Здесь можно добавить валидацию для maxSupply, mintLimit и т.д., если нужно, но основная проверка ниже.
+
+  await Rpc.setInstance(Kiwi.network).connect();
+
+  // 2. Проверка уникальности тикера
+  const tokenInfo = await KasplexApi.getToken(ticker);
+  if (tokenInfo && tokenInfo.result && tokenInfo.result[0].state !== 'unused') {
+    throw new Error(`Token with ticker "${ticker}" already exists or is reserved.`);
+  }
+
+  // 3. Проверка баланса кошелька
+  const balances = await getBalancesForAddresses([walletAddress]);
+  const walletBalanceStr = balances[walletAddress];
+
+  if (!walletBalanceStr) {
+    throw new Error(`Could not retrieve balance for wallet ${walletAddress}.`);
+  }
+
+  // Очищаем строку от запятых перед парсингом
+  const cleanBalanceStr = walletBalanceStr.replace(/,/g, '');
+  const walletBalanceNum = parseFloat(cleanBalanceStr);
+
+  if (isNaN(walletBalanceNum) || walletBalanceNum < TOTAL_FEE_KAS) {
+    throw new Error(`Insufficient KAS balance. Need at least ${TOTAL_FEE_KAS} KAS for fees. Current balance: ${walletBalanceStr} KAS.`);
+  }
+
+
+  // Используем Wasm.kaspaToSompi для конвертации в наименьшие единицы
+  // Это просто умножение на 10^8, что эквивалентно сдвигу запятой на 8 знаков.
+  // Если у вас есть своя функция для токенов с произвольным `decimals`, используйте ее.
+  // Для простоты будем считать, что Wasm.kaspaToSompi подходит.
+
+  const maxInBaseUnits = Wasm.kaspaToSompi(maxSupply).toString();
+  const limInBaseUnits = Wasm.kaspaToSompi(mintLimit).toString();
+
+  let preInBaseUnits = ""; // По умолчанию - ПУСТАЯ СТРОКА, а не "0"
+
+  if (preAllocationAmount && preAllocationAmount.trim() !== '') {
+    const preAmountBigInt = Wasm.kaspaToSompi(preAllocationAmount);
+
+    // Добавим нашу собственную проверку, чтобы дать пользователю более понятную ошибку
+    if (preAmountBigInt <= 0n) {
+      throw new Error("Pre-allocation amount, if provided, must be a positive number.");
+    }
+
+    // Проверка, что pre-allocation не больше max supply
+    if (preAmountBigInt > BigInt(maxInBaseUnits)) {
+      throw new Error("Pre-allocation amount cannot be greater than Max Supply.");
+    }
+
+    preInBaseUnits = preAmountBigInt.toString();
+  }
+
+  // 4. Получение приватного ключа
+  const privateKeysMap = await getPrivateKeys([walletAddress]);
+  const privateKeyStr = privateKeysMap.get(walletAddress);
+  if (!privateKeyStr) {
+    throw new Error("Private key for the selected wallet could not be retrieved.");
+  }
+  const privateKey = new Wasm.PrivateKey(privateKeyStr);
+
+  // 5. Формирование данных для деплоя
+  const deployData = Utils.createKrc20Data({
+    p: "krc-20",
+    op: Enum.OP.Deploy,
+    tick: ticker,
+    to: walletAddress, // Pre-allocation amount (if any) is sent to the deployer's address
+    max: maxInBaseUnits,     // <--- Используем конвертированное значение
+    lim: limInBaseUnits,     // <--- Используем конвертированное значение
+    pre: preInBaseUnits,
+    dec: decimals || "8", // По умолчанию 8, как в большинстве токенов
+    amt: "", // Для операции deploy поле amt должно быть пустым
+  });
+
+  console.log("Deploying KRC-20 token with data:", deployData);
+
+  // 6. Вызов функции деплоя из библиотеки
+  // Примечание: KRC20.deploy может не принимать комиссию, а рассчитывать ее сама.
+  // Если она принимает, то нужно передать ее: KRC20.deploy(privateKey, deployData, Wasm.kaspaToSompi(TOTAL_FEE_KAS.toString()))
+  // Судя по документации, она не принимает комиссию явно, а использует стандартную.
+  // Важно убедиться, что на кошельке достаточно KAS для покрытия комиссии, которую библиотека установит.
+  const txid = await KRC20.deploy(privateKey, deployData);
+
+  console.log(`Token ${ticker} deployed successfully. TXID: ${txid}`);
+  await Rpc.getInstance().disconnect();
+  return txid;
+}

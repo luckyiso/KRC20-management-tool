@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useLocation, Link } from "react-router"
-import { Gauge, Pencil, MonitorUp, MonitorDown, BriefcaseBusiness, Wallet} from "lucide-react"
+import { Gauge, MonitorUp, MonitorDown, BriefcaseBusiness, Wallet} from "lucide-react"
 
 import {SettingsPopUp} from "@/components/settings.tsx";
 import {
@@ -19,11 +19,6 @@ const items = [
         title: "Dashboard",
         route: "/",
         icon: Gauge,
-      },
-      {
-        title: "Create wallets",
-        route:"/create-wallets",
-        icon: Pencil,
       },
       {
         title: "Deploy tokens",
