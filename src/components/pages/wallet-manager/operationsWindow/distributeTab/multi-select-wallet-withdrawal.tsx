@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import {ChevronsUpDown } from "lucide-react"
 
-import { cn } from "@/lib/utils.ts"
 import { Button } from "@/components/ui/button.tsx"
 import {
     Command,
@@ -25,18 +24,15 @@ import {Checkbox} from "@/components/ui/checkbox.tsx";
 
 interface MultiSelectWalletProps {
     filterWalletsBy?: 0;
-    // Теперь onSelectWallets принимает массив кошельков
     onSelectWallets?: (wallets: Wallet[]) => void;
-    // Теперь initialSelectedWalletAddresses принимает массив строк
     initialSelectedWalletAddresses?: string[];
     excludeWalletAddresses?: string[];
 }
 
-export function MultiSelectWalletWithdrawal({ filterWalletsBy, onSelectWallets, initialSelectedWalletAddresses, excludeWalletAddresses }: MultiSelectWalletProps) {
+export function MultiSelectWalletWithdrawal({ onSelectWallets, initialSelectedWalletAddresses, excludeWalletAddresses }: MultiSelectWalletProps) {
     const { wallets, isLoadingWallets, errorLoadingWallets } = useWallets(0);
 
     const [open, setOpen] = React.useState(false);
-    // Состояние теперь массив выбранных адресов
     const [selectedValues, setSelectedValues] = React.useState<string[]>(initialSelectedWalletAddresses || []);
 
     React.useEffect(() => {
@@ -54,13 +50,10 @@ export function MultiSelectWalletWithdrawal({ filterWalletsBy, onSelectWallets, 
             return [];
         }
 
-        // Создаем Set для быстрого поиска исключаемых адресов
         const excludedAddressesSet = new Set(excludeWalletAddresses || []);
 
-        // Применяем фильтрацию здесь
         return wallets
             .filter(wallet =>
-                // Если excludeWalletAddresses передан и содержит адрес текущего кошелька, исключаем его
                 !excludedAddressesSet.has(wallet.address)
             )
             .map(wallet => ({
@@ -77,22 +70,17 @@ export function MultiSelectWalletWithdrawal({ filterWalletsBy, onSelectWallets, 
             : "Select wallets...";
     }, [selectedValues, formattedWallets]);
 
-    // Обработчик выбора/снятия выбора кошелька
     const handleToggleWallet = (walletToToggle: { value: string, label: string, originalWallet: Wallet }) => {
         const isSelected = selectedValues.includes(walletToToggle.value);
         let newSelectedValues;
         let newSelectedWalletObjects: Wallet[];
 
         if (isSelected) {
-            // Удаляем кошелек из выбранных
             newSelectedValues = selectedValues.filter((value) => value !== walletToToggle.value);
         } else {
-            // Добавляем кошелек к выбранным
             newSelectedValues = [...selectedValues, walletToToggle.value];
         }
         setSelectedValues(newSelectedValues);
-
-        // Формируем массив объектов Wallet для колбэка
         newSelectedWalletObjects = formattedWallets
             .filter(fw => newSelectedValues.includes(fw.value))
             .map(fw => fw.originalWallet);
@@ -132,11 +120,9 @@ export function MultiSelectWalletWithdrawal({ filterWalletsBy, onSelectWallets, 
                                     <CommandItem
                                         key={wallet.value}
                                         value={wallet.label}
-                                        // При клике на CommandItem, вызываем наш обработчик
                                         onSelect={() => handleToggleWallet(wallet)}
                                         className="flex items-center cursor-pointer"
                                     >
-                                        {/* Используем компонент Checkbox для отображения состояния выбора */}
                                         <Checkbox
                                             checked={selectedValues.includes(wallet.value)}
                                             className="mr-2"

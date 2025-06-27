@@ -9,12 +9,11 @@ import {
 } from "@/components/ui/dialog.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import {useEffect, useState} from "react";
-import * as React from "react";
 
 interface GetPrivateKeyProps {
-    walletAddress: string; // Адрес кошелька, для которого получаем приватный ключ
-    isOpen: boolean; // Управляем видимостью диалога извне
-    onClose: () => void; // Функция для закрытия диалога извне
+    walletAddress: string;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 export function GetPrivateKey({ walletAddress, isOpen, onClose }: GetPrivateKeyProps) {
@@ -23,19 +22,16 @@ export function GetPrivateKey({ walletAddress, isOpen, onClose }: GetPrivateKeyP
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // Если диалог открыт и адрес кошелька есть, пробуем получить приватный ключ
         if (isOpen && walletAddress) {
             const fetchPrivateKey = async () => {
                 setIsLoading(true);
                 setError(null);
-                setPrivateKey(null); // Сбрасываем предыдущий ключ
-
+                setPrivateKey(null);
                 try {
                     if (window.electronAPI && window.electronAPI.getPrivateKeys) {
                         console.log(`GetPrivateKey: Requesting private key for address: ${walletAddress}`);
-                        // Запрашиваем ключи для одного адреса
                         const keysArray = await window.electronAPI.getPrivateKeys([walletAddress]);
-                        const keysMap = new Map<string, string>(keysArray); // <--- Конвертируем обратно в Map
+                        const keysMap = new Map<string, string>(keysArray);
                         const fetchedKey = keysMap.get(walletAddress);
                         if (fetchedKey) {
                             setPrivateKey(fetchedKey);
@@ -97,7 +93,7 @@ export function GetPrivateKey({ walletAddress, isOpen, onClose }: GetPrivateKeyP
                     <Button
                         type="button"
                         onClick={handleCopy}
-                        disabled={!privateKey || isLoading} // Отключаем кнопку, если нет ключа или идет загрузка
+                        disabled={!privateKey || isLoading}
                     >
                         Copy
                     </Button>

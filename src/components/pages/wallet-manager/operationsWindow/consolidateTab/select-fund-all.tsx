@@ -1,4 +1,4 @@
-// src/components/select-fund.tsx
+
 "use client"
 
 import * as React from "react"
@@ -19,20 +19,19 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover.tsx"
 
-// Определяем тип Fund, который будет использоваться в компоненте
 export type FundWithIndividualBalances = {
-    value: string; // Уникальный идентификатор (e.g., "KAS", "TOKEN_CONTRACT_ADDRESS")
-    label: string; // Отображаемое имя (e.g., "Kaspa", "MyToken")
-    balance: string; // Общий агрегированный баланс этого актива
+    value: string;
+    label: string;
+    balance: string;
     decimals?: number;
     fiatValue?: string;
-    individualBalances?: Map<string, string>; // Ключ: адрес кошелька, Значение: баланс в этом кошельке
+    individualBalances?: Map<string, string>;
 };
 
 interface SelectFundAllProps {
     id?: string;
-    allFunds: FundWithIndividualBalances[]; // <-- Получает все данные от родителя
-    onSelectFund: (fund: FundWithIndividualBalances | null) => void; // <-- Сообщает родителю о выборе
+    allFunds: FundWithIndividualBalances[];
+    onSelectFund: (fund: FundWithIndividualBalances | null) => void;
     initialSelectedFundValue?: string;
     disabled?: boolean;
     className?: string;
@@ -50,32 +49,25 @@ export function SelectFundAll({
     const [open, setOpen] = React.useState(false);
     const [selectedValue, setSelectedValue] = React.useState(initialSelectedFundValue || "");
 
-    // Эффект для синхронизации внутреннего состояния с внешним пропсом
     React.useEffect(() => {
         setSelectedValue(initialSelectedFundValue || "");
     }, [initialSelectedFundValue]);
 
-    // Эффект, который сообщает родительскому компоненту о выборе
-    // Он срабатывает, когда меняется selectedValue или сам список фондов
     React.useEffect(() => {
         const selectedFund = allFunds.find(f => f.value === selectedValue) || null;
         onSelectFund(selectedFund);
     }, [selectedValue, allFunds, onSelectFund]);
 
     const handleSelect = (currentValue: string) => {
-        // Если пользователь выбирает уже выбранный элемент, мы можем его сбросить.
-        // Или просто установить новое значение. Второй вариант проще.
         setSelectedValue(currentValue);
-        setOpen(false); // Закрываем выпадающий список после выбора
+        setOpen(false);
     };
 
-    // Используем useMemo для вычисления отображаемого текста, чтобы избежать лишних пересчетов
     const displayLabel = React.useMemo(() => {
         const selectedFund = allFunds.find((fund) => fund.value === selectedValue);
         if (!selectedFund) {
             return placeholderText;
         }
-        // Показываем название актива и его общий баланс
         return `${selectedFund.label} (${selectedFund.balance})`;
     }, [selectedValue, allFunds, placeholderText]);
 
@@ -107,7 +99,7 @@ export function SelectFundAll({
                             {allFunds.map((fund) => (
                                 <CommandItem
                                     key={fund.value}
-                                    value={fund.label} // Поиск будет идти по имени
+                                    value={fund.label}
                                     onSelect={() => handleSelect(fund.value)}
                                     className="cursor-pointer"
                                 >

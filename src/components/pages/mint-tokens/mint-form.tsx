@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useState } from "react";
 import { Wallet } from "@/components/provider/wallet-provider.tsx";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -16,7 +15,6 @@ interface MintFormProps {
 }
 
 export function MintForm({ onStartMint }: MintFormProps) {
-    // Состояние теперь хранит массив выбранных кошельков
     const [selectedWallets, setSelectedWallets] = useState<Wallet[]>([]);
     const [ticker, setTicker] = useState("");
     const [mintAmount, setMintAmount] = useState(100);
@@ -33,16 +31,12 @@ export function MintForm({ onStartMint }: MintFormProps) {
         setError(null);
         setIsStarting(true);
         try {
-            // Передаем массив кошельков в колбэк
-            await onStartMint({
+            onStartMint({
                 wallets: selectedWallets,
                 ticker,
                 amount: mintAmount,
                 fee
             });
-            // Можно опционально сбросить форму после запуска
-            // setSelectedWallets([]);
-            // setTicker("");
         } catch (e: any) {
             setError(e.message || "An unexpected error occurred.");
         } finally {
@@ -60,11 +54,8 @@ export function MintForm({ onStartMint }: MintFormProps) {
                 <div>
                     <Label>Wallets</Label>
                     <SelectWalletWithFund
-                        // Включаем режим мульти-выбора
                         isMultiSelect={true}
-                        // Передаем правильный колбэк для обновления массива кошельков
                         onSelectWallets={setSelectedWallets}
-                        // Передаем начальные значения как массив адресов
                         initialSelectedWalletAddresses={selectedWallets.map(w => w.address)}
                         placeholderText="Select wallet(s)..."
                     />

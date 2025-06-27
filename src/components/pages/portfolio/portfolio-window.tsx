@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useEffect, useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,17 +7,6 @@ import { useWallets } from "@/components/provider/wallet-provider";
 import { parseUnits, formatUnits } from 'viem';
 import { Card } from "@/components/ui/card.tsx";
 
-// Тип для ответа от нового API
-interface KaspacomApiResponse {
-    ticker: string;
-    price: number;
-    marketCap: number;
-    volumeUsd: number;
-    // Пока не видим 24h change, поэтому делаем его опциональным
-    change24h?: number;
-}
-
-// Тип для нашего итогового актива
 interface PortfolioAsset {
     ticker: string;
     totalBalance: bigint;
@@ -32,7 +20,7 @@ interface PortfolioAsset {
 
 const mockPriceAPI = async (tickers: string[]): Promise<Record<string, Partial<PortfolioAsset>>> => {
     console.log("Using mock data for tickers:", tickers);
-    await new Promise(resolve => setTimeout(resolve, 300)); // Имитируем небольшую задержку
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     const prices: Record<string, Partial<PortfolioAsset>> = {};
 
@@ -40,10 +28,9 @@ const mockPriceAPI = async (tickers: string[]): Promise<Record<string, Partial<P
         let price = 0;
         let change24h = 0;
 
-        // Добавим несколько известных значений для красоты
         if (ticker.toUpperCase() === 'KASPA') {
             price = 0.125;
-            change24h = (Math.random() - 0.4) * 10; // Небольшое случайное изменение
+            change24h = (Math.random() - 0.4) * 10;
         } else if (ticker.toUpperCase() === 'WOLFY') {
             price = 0.000081;
             change24h = (Math.random() - 0.6) * 15;
@@ -77,7 +64,6 @@ export function PortfolioWindow() {
             setError(null);
 
             try {
-                // ШАГ 1: Получаем и агрегируем балансы (без изменений)
                 const tokensResponse = await window.electronAPI.getTokensForAddresses(wallets.map(w => w.address));
                 const aggregated = new Map<string, { totalBalance: bigint; decimals: number; walletAddresses: Set<string>; }>();
 
@@ -102,13 +88,11 @@ export function PortfolioWindow() {
                     return;
                 }
 
-                // ШАГ 2: "Запрашиваем" рыночные данные из нашей заглушки
                 const tickers = Array.from(aggregated.keys());
                 const marketData = await mockPriceAPI(tickers);
 
-                // ШАГ 3: Собираем все вместе
                 const finalPortfolio: PortfolioAsset[] = Array.from(aggregated.entries()).map(([ticker, balanceData]) => {
-                    const marketInfo = marketData[ticker] || {}; // Получаем данные или пустой объект
+                    const marketInfo = marketData[ticker] || {};
                     return {
                         ticker: ticker,
                         totalBalance: balanceData.totalBalance,

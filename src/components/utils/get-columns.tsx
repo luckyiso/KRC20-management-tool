@@ -11,7 +11,6 @@ import {
 } from "@/components/ui/dropdown-menu.tsx";
 interface GetColumnsProps {
     handleDeleteWallet: (address: string) => Promise <void>;
-    // Новая функция для вызова диалога переименования из родительского компонента
     onRenameClick: (wallet: Wallet) => void;
     onGetPrivateKeyClick?: (wallet: Wallet) => void;
 }
@@ -94,7 +93,7 @@ export const getColumns = ({ handleDeleteWallet, onRenameClick, onGetPrivateKeyC
                                 >
                                     Copy address
                                 </DropdownMenuItem>
-                                {onGetPrivateKeyClick && ( // Рендерим, только если onGetPrivateKeyClick был передан
+                                {onGetPrivateKeyClick && (
                                     <DropdownMenuItem
                                         onClick={() => {
                                             onGetPrivateKeyClick(wallet);

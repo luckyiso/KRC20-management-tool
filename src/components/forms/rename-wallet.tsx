@@ -6,24 +6,22 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog.tsx"
 import { Input } from "@/components/ui/input.tsx"
 import { Label } from "@/components/ui/label.tsx"
-import {createRef, useEffect, useState} from "react";
-import * as React from "react";
+import { useEffect, useState} from "react";
 
 interface RenameWalletProps {
-    walletAddress: string; // Адрес кошелька, который будем переименовывать
-    currentWalletName: string; // Текущее имя кошелька
-    isOpen: boolean; // Управляем видимостью диалога извне
-    onClose: () => void; // Функция для закрытия диалога извне
+    walletAddress: string;
+    currentWalletName: string;
+    isOpen: boolean;
+    onClose: () => void;
 }
 
 export function RenameWallet({ walletAddress, currentWalletName, isOpen, onClose }: RenameWalletProps) {
     const [isRenamingWallet, setIsRenamingWallet] = useState(false);
-    const [errorRenamingWallet, setErrorRenamingWallet] = useState<string | null>(null);
-    const [newNameInput, setNewNameInput] = useState(currentWalletName); // Инициализируем текущим именем
+    const [, setErrorRenamingWallet] = useState<string | null>(null);
+    const [newNameInput, setNewNameInput] = useState(currentWalletName);
 
     useEffect(() => {
         if (isOpen) {
@@ -51,7 +49,7 @@ export function RenameWallet({ walletAddress, currentWalletName, isOpen, onClose
                 const renameResult = await window.electronAPI.renameWallet(walletAddress, newName);
                 if (renameResult.success) {
                     console.log("RenameWallet: Wallet renamed successfully!");
-                    onClose(); // Закрываем диалог при успехе
+                    onClose();
                 } else {
                     setErrorRenamingWallet(renameResult.error || "Unknown error during rename.");
                 }
@@ -77,23 +75,18 @@ export function RenameWallet({ walletAddress, currentWalletName, isOpen, onClose
                     </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                    {/*{errorImportingWallets && (*/}
-                    {/*    <p className="text-red-500 text-sm col-span-4 text-center">*/}
-                    {/*        {errorImportingWallets}*/}
-                    {/*    </p>*/}
-                    {/*)}*/}
                     <div className="grid grid-cols-4 items-center gap-4">
                         <Label htmlFor="nameInput" className="text-right">
                             New name
                         </Label>
-                        <Input id="nameInput" placeholder="New wallet name" className="col-span-3" value={newNameInput} // <--- Привязываем значение к состоянию
+                        <Input id="nameInput" placeholder="New wallet name" className="col-span-3" value={newNameInput}
                                onChange={(e) => setNewNameInput(e.target.value)} />
                     </div>
                 </div>
                 <DialogFooter>
                     <Button type="button" className="ml-auto"
-                            onClick={handleRenameSubmit} // Привязываем обработчик создания
-                            disabled={isRenamingWallet} // Отключаем во время создания
+                            onClick={handleRenameSubmit}
+                            disabled={isRenamingWallet}
                     >
                         {isRenamingWallet ? 'Renaming...' : 'Rename wallet'}
                     </Button>

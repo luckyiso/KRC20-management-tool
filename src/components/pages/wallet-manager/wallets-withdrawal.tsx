@@ -26,13 +26,10 @@ import { getColumns } from "@/components/utils/get-columns.tsx";
 import {Card, CardContent, CardDescription, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {AddWithdrawalAddressWindow} from "@/components/forms/add-wallet-withdrawal.tsx";
 import {RenameWallet} from "@/components/forms/rename-wallet.tsx";
-import {ImportWallet} from "@/components/forms/import-wallet.tsx";
-
 
 export function WalletsWithdrawal() {
     const { wallets: walletsData, isLoadingWallets} = useWallets(1);
 
-    // Эти состояния таблицы остаются локальными, так как они относятся только к UI таблицы
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
@@ -46,8 +43,6 @@ export function WalletsWithdrawal() {
                 const success = await window.electronAPI.deleteWallet(address);
                 if (success) {
                     console.log(`Wallet ${address} deleted successfully.`);
-                    // После успешного удаления, возможно, нужно обновить список кошельков
-                    // refetchWallets(); // Хук useWallets должен сам обновиться через IPC-событие
                 } else {
                     console.error(`Failed to delete wallet ${address}.`);
                 }
@@ -62,7 +57,7 @@ export function WalletsWithdrawal() {
     const handleRenameClick = React.useCallback((wallet: typeof walletsData[0]) => {
         setWalletToRename({ address: wallet.address, name: wallet.name });
         setIsRenameDialogOpen(true);
-    }, []); // Зависимости пустые, т.к. она просто устанавливает состояние
+    }, []);
 
     const columns = React.useMemo(() => getColumns({
         handleDeleteWallet,
@@ -71,7 +66,7 @@ export function WalletsWithdrawal() {
 
 
     const table = useReactTable({
-        data: walletsData, // ### Используем данные из состояния ###
+        data: walletsData,
         columns: columns,
         onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
@@ -132,7 +127,7 @@ export function WalletsWithdrawal() {
                                 {!isLoadingWallets && table.getRowModel().rows?.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={columns.length} // Правильное количество колонок
+                                            colSpan={columns.length}
                                             className="h-24 text-center"
                                         >
                                             Кошельки не найдены.

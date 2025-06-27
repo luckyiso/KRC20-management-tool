@@ -1,4 +1,3 @@
-// src/components/operationsWindow/consolidateTab/consolidate-tab.tsx
 "use client"
 
 import * as React from "react";
@@ -19,7 +18,6 @@ const ShadcnInput = React.forwardRef<HTMLInputElement, InputProps>((props, ref) 
 });
 
 export function ConsolidateTab() {
-    // --- НОВЫЕ СОСТОЯНИЯ ДЛЯ ДАННЫХ И ЗАГРУЗКИ ---
     const [allFundsWithBalances, setAllFundsWithBalances] = React.useState<FundWithIndividualBalances[]>([]);
     const [isLoadingData, setIsLoadingData] = React.useState(true);
     const [dataError, setDataError] = React.useState<string | null>(null);
@@ -37,12 +35,9 @@ export function ConsolidateTab() {
 
     const { wallets: allWallets, isLoadingWallets } = useWallets(0);
 
-    // --- ГЛАВНЫЙ ЭФФЕКТ ДЛЯ ЗАГРУЗКИ ВСЕХ ДАННЫХ ОДНИМ ЗАПРОСОМ ---
     React.useEffect(() => {
         const fetchAllData = async () => {
-            // Ждем, пока кошельки загрузятся, и убеждаемся, что они есть
             if (isLoadingWallets || allWallets.length === 0) {
-                // Если кошельков нет после загрузки, выходим
                 if (!isLoadingWallets && allWallets.length === 0) {
                     setIsLoadingData(false);
                 }
@@ -52,33 +47,29 @@ export function ConsolidateTab() {
             setIsLoadingData(true);
             setDataError(null);
 
-            // 1. Собираем адреса всех кошельков в массив строк
             const walletAddresses = allWallets.map(wallet => wallet.address);
 
             try {
-                // 2. Вызываем API с правильным именем и параметрами
+
                 const tokensByAddressObject = await window.electronAPI.getTokensForAddresses(walletAddresses);
                 const tokensByAddress = new Map<string, KaspaWalletToken[]>(Object.entries(tokensByAddressObject));
 
-                // 3. Трансформируем данные в нужный формат (FundWithIndividualBalances[])
                 const aggregatedFunds = new Map<string, FundWithIndividualBalances>();
 
                 for (const [address, tokens] of tokensByAddress.entries()) {
                     for (const token of tokens) {
                         if (!aggregatedFunds.has(token.value)) {
-                            // Если видим этот актив впервые, создаем для него запись
                             aggregatedFunds.set(token.value, {
                                 value: token.value,
                                 label: token.label,
                                 decimals: token.decimals,
-                                balance: "0", // Общий баланс будет посчитан
+                                balance: "0",
                                 individualBalances: new Map<string, string>(),
                             });
                         }
 
                         const fund = aggregatedFunds.get(token.value)!;
 
-                        // Суммируем общий баланс
                         const currentTotal = parseFloat(fund.balance.replace(/,/g, ''));
                         const currentTokenBalance = parseFloat(token.balance.replace(/,/g, ''));
                         fund.balance = (currentTotal + currentTokenBalance).toLocaleString('en-US', {
@@ -87,8 +78,6 @@ export function ConsolidateTab() {
                             useGrouping: false
                         });
 
-
-                        // Записываем индивидуальный баланс для каждого кошелька
                         fund.individualBalances!.set(address, token.balance);
                     }
                 }
@@ -108,7 +97,6 @@ export function ConsolidateTab() {
 
     const handleSelectAsset = React.useCallback((fund: FundWithIndividualBalances | null) => {
         setSelectedAsset(fund);
-        // Сбрасываем зависимые поля при смене актива
         setSelectedSourceWallets([]);
         setAmountPerSourceStr("");
         setNumericAmountPerSource(null);
@@ -132,7 +120,6 @@ export function ConsolidateTab() {
         setTransactionError(null);
     }, []);
 
-    // Проверка балансов остаётся такой же, как у вас
     React.useEffect(() => {
         if (!selectedAsset || !selectedAsset.individualBalances || selectedSourceWallets.length === 0 || numericAmountPerSource === null || numericAmountPerSource <= 0) {
             setBalanceCheckError(null);
@@ -183,14 +170,13 @@ export function ConsolidateTab() {
             setTransactionError("Please enter a valid amount per source."); return;
         }
 
-        if (balanceCheckError) { // Если есть ошибки проверки баланса
+        if (balanceCheckError) {
             setTransactionError(balanceCheckError); return;
         }
 
         setIsSending(true);
         try {
             const decimals = selectedAsset.decimals || 8;
-            const amountToSendPerSourceStr = numericAmountPerSource.toFixed(decimals);
             const participatingSourceAddresses: string[] = [];
             selectedSourceWallets.forEach(sw => {
                 const balanceStr = selectedAsset.individualBalances?.get(sw.address);
@@ -209,27 +195,14 @@ export function ConsolidateTab() {
             }
             const recipientOutputs = [{
                 address: selectedDestinationWallet.address,
-// Сумма для получателя - это сумма со всех источников
-// НО! API sendFunds может ожидать, что вы сами укажете, сколько с каждого источника.
-// Если API ожидает total, то: (numericAmountPerSource * participatingSourceAddresses.length).toFixed(decimals)
-// Если API обрабатывает "каждый источник отправляет X", то в outputs amount может быть не важен,
-// а важен параметр amount для каждого источника.
-// Для KASPA sendFunds, если тип multipleToSingle, он обычно сам берет с каждого sourceAddress указанную сумму
-// и складывает на recipient. Либо нужно передавать input-ы.
-// Уточните, как работает ваше window.electronAPI.sendFunds для multipleToSingle.
-// Пока предположим, что API само разберется с суммированием, если ему передать sourceAddresses и один recipient
-// с общей суммой (или если оно ожидает сумму *на каждый* инпут - тогда это amountToSendPerSourceStr)
-//
-// Для консолидации, где каждый источник шлет ОДИНАКОВУЮ СУММУ, а API ожидает массив источников
-// и одного получателя с ОБЩЕЙ суммой:
                 amount: (numericAmountPerSource * participatingSourceAddresses.length).toFixed(decimals)
             }];
             const txResult = await window.electronAPI.sendFunds(
-                participatingSourceAddresses, // Массив адресов источников
-                recipientOutputs, // Массив с одним объектом-получателем
-                'multipleToSingle', // Тип операции
-                selectedAsset.label, // Или selectedAsset.value
-                "0.0001" // Комиссия
+                participatingSourceAddresses,
+                recipientOutputs,
+                'multipleToSingle',
+                selectedAsset.label,
+                "0.0001"
             );
 
             if (txResult.success) {
@@ -259,7 +232,6 @@ export function ConsolidateTab() {
         !!balanceCheckError ||
         isLoadingData;
 
-    // --- УЛУЧШЕННОЕ ОТОБРАЖЕНИЕ СОСТОЯНИЯ ЗАГРУЗКИ И ОШИБОК ---
     if (isLoadingData) {
         return (
             <Card>
@@ -299,7 +271,7 @@ export function ConsolidateTab() {
                 <div>
                     <Label htmlFor="consolidate-asset">Asset to Consolidate</Label>
                     <SelectFundAll
-                        allFunds={allFundsWithBalances} // <-- Передаем загруженные данные
+                        allFunds={allFundsWithBalances}
                         onSelectFund={handleSelectAsset}
                         initialSelectedFundValue={selectedAsset?.value}
                     />
@@ -307,13 +279,13 @@ export function ConsolidateTab() {
                 <div>
                     <Label htmlFor="consolidate-source-wallets">From (Source Wallets)</Label>
                     <SelectWalletWithFund
-                        activeAsset={selectedAsset} // <-- Фильтр по этому активу
+                        activeAsset={selectedAsset}
                         onSelectWallets={handleSelectSourceWallets}
                         initialSelectedWalletAddresses={selectedSourceWallets.map(w => w.address)}
                         excludeWalletAddresses={selectedDestinationWallet ? [selectedDestinationWallet.address] : []}
                         disabled={!selectedAsset}
                         placeholderText="Select source wallets..."
-                        isMultiSelect={true} // <-- Указываем, что это мульти-селект
+                        isMultiSelect={true}
                     />
                 </div>
                 <div>
@@ -337,12 +309,12 @@ export function ConsolidateTab() {
                     <Label htmlFor="consolidate-destination-wallet">To (Destination Wallet)</Label>
                     <SelectWalletWithFund
                         id="consolidate-destination-wallet"
-                        onSelectWallet={handleSelectDestinationWallet} // <-- onSelectWallet для одиночного выбора
+                        onSelectWallet={handleSelectDestinationWallet}
                         initialSelectedWalletAddress={selectedDestinationWallet?.address}
                         excludeWalletAddresses={selectedSourceWallets.map(w => w.address)}
-                        activeAsset={null} // <-- Фильтр не нужен
+                        activeAsset={null}
                         disabled={selectedSourceWallets.length === 0}
-                        isMultiSelect={false} // <-- Указываем, что это одиночный выбор
+                        isMultiSelect={false}
                         placeholderText="Select destination wallet..."
                     />
                 </div>

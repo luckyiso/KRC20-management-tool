@@ -20,15 +20,13 @@ async function waitForBalanceChange(
 
       if (response.message === 'successful' && response.result.length > 0) {
         const tokenData = response.result[0];
-        // Конвертируем строковый баланс в BigInt с учетом decimals
         const currentBalance = parseUnits(tokenData.balance, decimals);
 
         if (currentBalance > initialBalance) {
           console.log(`[Mint Service] Balance for "${ticker}" updated. New balance: ${currentBalance}`);
-          return currentBalance; // Успех, возвращаем новый баланс
+          return currentBalance;
         }
       }
-      // Если токена еще нет на балансе, result будет пустым, это нормально, продолжаем опрос.
 
     } catch (error: any) {
       console.warn(`[Mint Service] Polling for balance failed, will retry. Error: ${error.message}`);
@@ -43,7 +41,7 @@ export interface MintProgressUpdate {
   currentIndex: number;
   total: number;
   txid: string;
-  status: 'active' | 'finished' | 'error' | 'stopped';
+  status: 'active' | 'finished' | 'error' | 'stopped' | 'confirming';
   error?: string;
 }
 
@@ -58,7 +56,6 @@ interface StartMintParams {
 const activeMintProcesses = new Map<string, { isRunning: boolean }>();
 const BATCH_SIZE = 3;
 
-// Хранилище для управления состоянием активных процессов
 export async function startMintProcess(
     params: StartMintParams,
     onProgress: (update: MintProgressUpdate) => void
@@ -78,14 +75,12 @@ export async function startMintProcess(
     const krc20data = Utils.createKrc20Data({ p: "krc-20", op: Enum.OP.Mint, tick: ticker });
     const feeSompi = Wasm.kaspaToSompi(feeInKas);
 
-    // Получаем информацию о токене ОДИН РАЗ в начале, чтобы узнать decimals
     const tokenInfoResponse = await KasplexApi.getToken(ticker);
     if (tokenInfoResponse.message !== 'successful' || !tokenInfoResponse.result[0]) {
       throw new Error(`Could not fetch info for ticker "${ticker}".`);
     }
     const tokenDecimals = parseInt(tokenInfoResponse.result[0].dec, 10);
 
-    // Получаем начальный баланс
     const initialBalanceResponse = await KasplexApi.getBalance(fromAddress, ticker);
     let lastKnownBalance = 0n;
     if (initialBalanceResponse.message === 'successful' && initialBalanceResponse.result.length > 0) {
@@ -116,7 +111,6 @@ export async function startMintProcess(
       totalMintsCompleted += mintsInThisBatch;
       onProgress({ processId, currentIndex: totalMintsCompleted, total: mintTimes, txid: batchFirstTxid, status: 'confirming' });
 
-      // Ждем изменения баланса
       lastKnownBalance = await waitForBalanceChange(fromAddress, ticker, tokenDecimals, lastKnownBalance);
     }
 
@@ -129,7 +123,6 @@ export async function startMintProcess(
   }
 }
 
-// ... stopMintProcess и updateMintFee без изменений
 export function stopMintProcess(processId: string): boolean {
   const processState = activeMintProcesses.get(processId);
   if (processState) {

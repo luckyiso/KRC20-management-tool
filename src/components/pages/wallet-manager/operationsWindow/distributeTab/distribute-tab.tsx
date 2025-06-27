@@ -1,12 +1,12 @@
-// src/components/withdrawTab.tsx
+
 "use client"
 
 import * as React from "react";
-import { SelectWallet } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-wallet.tsx"; // Проверьте путь
-import { SelectFund, Fund } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-fund.tsx";   // Проверьте путь
+import { SelectWallet } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-wallet.tsx";
+import { SelectFund, Fund } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-fund.tsx";
 import { Wallet } from "@/components/provider/wallet-provider.tsx";
 import {Label} from "@/components/ui/label.tsx";
-import {Input} from "@/components/ui/input.tsx"; // Проверьте путь (для Wallet type)
+import {Input} from "@/components/ui/input.tsx";
 import { NumericFormat } from 'react-number-format';
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -17,10 +17,9 @@ const ShadcnInput = React.forwardRef<HTMLInputElement, InputProps>((props, ref) 
 });
 
 export function DistributeTab() {
-    const [selectedSourceWallet, setSelectedSourceWallet] = React.useState<Wallet | null>(null); // Переименовал для ясности
+    const [selectedSourceWallet, setSelectedSourceWallet] = React.useState<Wallet | null>(null);
     const [selectedFund, setSelectedFund] = React.useState<Fund | null>(null);
-    // Теперь это массив кошельков
-    const [selectedRecipientWallets, setSelectedRecipientWallets] = React.useState<Wallet[]>([]); // <--- ИЗМЕНЕНИЕ
+    const [selectedRecipientWallets, setSelectedRecipientWallets] = React.useState<Wallet[]>([]);
     const [amount, setAmount] = React.useState<string>("");
     const [numericAmount, setNumericAmount] = React.useState<number | null>(null);
     const [isSending, setIsSending] = React.useState(false);
@@ -39,10 +38,9 @@ export function DistributeTab() {
         setSelectedFund(fund);
     }, []);
 
-    // Теперь колбэк принимает массив кошельков
-    const handleSelectRecipientWallets = React.useCallback((wallets: Wallet[]) => { // <--- ИЗМЕНЕНИЕ
+    const handleSelectRecipientWallets = React.useCallback((wallets: Wallet[]) => {
         console.log("Selected Recipient Wallets in parent:", wallets);
-        setSelectedRecipientWallets(wallets); // <--- ИЗМЕНЕНИЕ
+        setSelectedRecipientWallets(wallets);
     }, []);
 
     const handleAmountChange = React.useCallback((values: {
@@ -74,34 +72,31 @@ export function DistributeTab() {
             setIsSending(false);
             return;
         }
-        // Проверка, что выбран хотя бы один кошелек-получатель
-        if (selectedRecipientWallets.length === 0) { // <--- ИЗМЕНЕНИЕ
+        if (selectedRecipientWallets.length === 0) {
             setTransactionError("Please select at least one recipient wallet.");
             setIsSending(false);
             return;
         }
 
         try {
-            // Массив адресов получателей
             const recipientOutputs = selectedRecipientWallets.map(wallet => ({
                 address: wallet.address,
-                amount: numericAmount.toString(), // <--- FIX: Add the amount here
+                amount: numericAmount.toString(),
             }));
 
             const txid = await window.electronAPI.sendFunds(
                 [selectedSourceWallet.address],
                 recipientOutputs,
-                'singleToMultiple', // Предполагая, что это подходит для multiple recipients
+                'singleToMultiple',
                 selectedFund.label,
                 "0.0001"
             );
 
             if (txid.success) {
                 setTransactionSuccess(`Транзакция успешно отправлена! ID: ${txid.txid}`);
-                // Очистка полей формы после успешной отправки
                 setSelectedSourceWallet(null);
                 setSelectedFund(null);
-                setSelectedRecipientWallets([]); // Сбросить выбранные кошельки получателей
+                setSelectedRecipientWallets([]);
                 setAmount("");
                 setNumericAmount(null);
             } else {
@@ -128,8 +123,11 @@ export function DistributeTab() {
                     <Label>From</Label>
                     <SelectWallet onSelectWallet={handleSelectSourceWallet} initialSelectedWalletAddress={selectedSourceWallet?.address}/>
                     <Label>Asset</Label>
-                    <SelectFund walletAddress={selectedSourceWallet ? selectedSourceWallet.address : null}
-                                onSelectFund={handleSelectFund} initialSelectedFundName={selectedFund?.label}/>
+                    <SelectFund
+                        walletAddress={selectedSourceWallet ? selectedSourceWallet.address : null}
+                        onSelectFund={handleSelectFund}
+                        initialSelectedFundValue={selectedFund?.value}
+                    />
                     <Label>Amount (per each wallet)</Label>
                     <NumericFormat
                         value={amount}
@@ -144,11 +142,10 @@ export function DistributeTab() {
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <Label>To</Label>
-                    {/* Используем MultiSelectWalletWithdrawal вместо SelectWalletWithdrawal */}
                     <MultiSelectWalletWithdrawal
                         excludeWalletAddresses={selectedSourceWallet ? [selectedSourceWallet.address] : []}
-                        onSelectWallets={handleSelectRecipientWallets} // <--- ИЗМЕНЕНИЕ
-                        initialSelectedWalletAddresses={selectedRecipientWallets.map(w => w.address)} // Передаем массив начальных адресов
+                        onSelectWallets={handleSelectRecipientWallets}
+                        initialSelectedWalletAddresses={selectedRecipientWallets.map(w => w.address)}
                     />
                     {transactionError && (
                         <div className="text-red-500 text-sm">{transactionError}</div>

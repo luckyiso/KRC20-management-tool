@@ -1,17 +1,15 @@
-import {KaspaApi, KasplexApi, Rpc, Wasm} from '@kasplex/kiwi'
-import { createRequire } from "module";
+import { KasplexApi } from '@kasplex/kiwi'
 import {getBalancesForAddresses} from "../BalanceChecker/KaspaBalance.ts";
-import {AddressTokenList, AddressTokenListResponse} from "@kasplex/kiwi/dist/types";
 import {formatTokenBalance} from "../utils/wallet-service.ts";
-const require = createRequire(import.meta.url);
-const {sompiToKaspaString} = require( "../wasm/kaspa");
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
+import {AddressTokenList, AddressTokenListResponse} from "@kasplex/kiwi/dist/types";
 
-// Тип для токена, который мы будем использовать в UI (как Fund)
 export interface KaspaWalletToken {
-    value: string; // Используем ticker как уникальный ID
-    label: string; // Отображаемое имя (ticker)
-    balance: string; // Форматированный баланс
-    decimals: number; // Количество десятичных знаков для форматирования
+    value: string;
+    label: string;
+    balance: string;
+    decimals: number;
 }
 
 export async function getTokensForAddresses(addresses: string[]): Promise<Map<string, KaspaWalletToken[]>> {
@@ -22,28 +20,25 @@ export async function getTokensForAddresses(addresses: string[]): Promise<Map<st
         return allTokensMap;
     }
 
-    // Собираем все промисы для запросов токенов и KAS балансов
     const tokenPromises = addresses.map(async (address) => {
         let addressTokens: KaspaWalletToken[] = [];
         let errorFetchingTokens: string | null = null;
 
         try {
-            // Используем библиотечный тип для ответа API
             const response: AddressTokenListResponse = await KasplexApi.getAddressTokenList(address);
             console.log("RPC Service: KasplexApi.getAddressTokenList response:", JSON.stringify(response));
 
-            // KasplexApiResponse имеет поле `message`
             if (response.message === "successful" && Array.isArray(response.result)) {
-                addressTokens = response.result.map((item: AddressTokenList) => { // Указываем тип item
-                    const decimals = parseInt(item.dec || '8', 10); // Используем item.dec
-                    const formattedBalance = formatTokenBalance(item.balance, decimals, 2); // Если API уже возвращает в читаемом формате
+                addressTokens = response.result.map((item: AddressTokenList) => {
+                    const decimals = parseInt(item.dec || '8', 10);
+                    const formattedBalance = formatTokenBalance(item.balance, decimals, 2);
                     return {
-                        value: item.tick || item.ca || '', // Используем tick или ca как value
-                        label: item.tick || 'Unknown Token', // Отображаемое имя
+                        value: item.tick || item.ca || '',
+                        label: item.tick || 'Unknown Token',
                         balance: formattedBalance,
                         decimals: isNaN(decimals) ? 8 : decimals
                     };
-                }).filter(token => token.value !== ''); // Фильтруем токены без value
+                }).filter((token: KaspaWalletToken) => token.value !== '');
             } else {
                 console.warn(`RPC Service: KasplexApi.getAddressTokenList returned unsuccessful message or invalid result for ${address}:`, response);
                 errorFetchingTokens = `Invalid response for address ${address}`;
@@ -53,7 +48,6 @@ export async function getTokensForAddresses(addresses: string[]): Promise<Map<st
             errorFetchingTokens = `Failed to fetch tokens for address ${address}: ${error.message || String(error)}`;
         }
 
-        // Также получаем KAS баланс для этого адреса
         let kaspaBalanceToken: KaspaWalletToken | null = null;
         try {
             const kaspaBalancesMap = await getBalancesForAddresses([address]);
@@ -71,7 +65,6 @@ export async function getTokensForAddresses(addresses: string[]): Promise<Map<st
             console.error(`RPC Service: Failed to fetch KAS balance for address ${address}: ${error.message || String(error)}`);
         }
 
-        // Если KAS баланс есть и его нет в уже полученных токенах, добавляем его
         if (kaspaBalanceToken && !addressTokens.some(token => token.value.toUpperCase() === 'KAS')) {
             addressTokens.unshift(kaspaBalanceToken);
         }
@@ -88,7 +81,7 @@ export async function getTokensForAddresses(addresses: string[]): Promise<Map<st
                 if (address) {
                     if (error) {
                         console.warn(`RPC Service: Partial failure for address ${address}: ${error}`);
-                        allTokensMap.set(address, []); // При ошибке для адреса - пустой массив токенов
+                        allTokensMap.set(address, []);
                     } else {
                         allTokensMap.set(address, tokens);
                     }

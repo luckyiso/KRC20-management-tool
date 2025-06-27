@@ -11,8 +11,8 @@ import {
   isPasswordSetupComplete,
   lockStorage, renameWallet,
   unlockStorage,
-} from '../src/api/utils/wallet-service.ts'; // Убедитесь, что путь правильный
-import {KasplexApi, Kiwi, Rpc, Wasm} from "@kasplex/kiwi";
+} from '../src/api/utils/wallet-service.ts';
+import {KaspaApi, KasplexApi, Kiwi, Rpc, Wasm} from "@kasplex/kiwi";
 
 
 import {getBalancesForAddresses} from '../src/api/BalanceChecker/KaspaBalance.ts';
@@ -39,7 +39,6 @@ let win: BrowserWindow | null
 
 
 
-//Главное окно
 process.env.APP_ROOT = path.join(__dirname, '..')
 
 // 🚧 Use ['ENV_NAME'] avoid vite:define plugin - Vite@2.x
@@ -51,7 +50,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL ? path.join(process.env.APP_ROOT, 
 
 function createWindow() {
   win = new BrowserWindow({
-    icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
+    icon: path.join(process.env.VITE_PUBLIC || '', 'electron-vite.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
@@ -121,11 +120,9 @@ ipcMain.handle('get-initial-network', async () => {
 
 ipcMain.handle('get-current-network', async () => {
   try {
-    // Сравниваем текущую сеть с константой из Wasm
     if (Kiwi.network === Wasm.NetworkType.Mainnet) {
       return { success: true, network: 'Mainnet' };
     } else {
-      // Во всех остальных случаях (Testnet, Devnet и т.д.) возвращаем Testnet для простоты
       return { success: true, network: 'Testnet' };
     }
   } catch (error: any) {
@@ -167,7 +164,6 @@ ipcMain.handle('login', async (event, password: string) => {
     throw new Error("Password cannot be empty.");
   }
 
-  // ### Проверяем, завершена ли установка пароля ###
   if (!isPasswordSetupComplete()) {
     console.warn("Login attempted before password setup.");
     throw new Error("Password setup not complete. Please setup a password first.");
@@ -195,7 +191,7 @@ ipcMain.handle('get-wallets', async (event) => {
   return fetchAndSendWalletsToRenderer(event.sender);
 });
 
-ipcMain.handle('get-private-keys', async (event, addresses: string[]) => {
+ipcMain.handle('get-private-keys', async (_event, addresses: string[]) => {
   try {
     const privateKeys = await getPrivateKeys(addresses);
     return Array.from(privateKeys.entries());
@@ -213,7 +209,6 @@ ipcMain.handle('create-wallet', async (event, name?: string) => {
     console.warn("Wallet creation attempt failed: Storage locked.");
     throw new Error("Storage is locked. Please log in to create a wallet.");
   }
-  // TODO: Проверка инициализации БД, если createAndSaveWallet ее не делает
 
   try {
     const newWalletInfo = await createAndSaveWallet(Kiwi.network, name);
@@ -235,7 +230,6 @@ ipcMain.handle('import-wallet', async (event, key: string, name: string) => {
     console.warn("Wallet creation attempt failed: Storage locked.");
     throw new Error("Storage is locked. Please log in to create a wallet.");
   }
-  // TODO: Проверка инициализации БД, если createAndSaveWallet ее не делает
 
   try {
     const newWalletInfo = await importAndSaveWallet(key, name);
@@ -337,7 +331,6 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
         return { success: false, error: 'Для указанных адресов отправителей не найдено приватных ключей.' };
       }
 
-      // Общая задержка и обновление UI после выполнения любой операции
       const postTransactionActions = async () => {
         await new Promise(resolve => setTimeout(resolve, 3500));
         await fetchAndSendWalletsToRenderer(event.sender);
@@ -411,12 +404,12 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
             return {
               success: false,
               error: `Операция завершена с ошибками. Успешно: ${successfulTxs.length}, с ошибкой: ${failedTxs.length}.`,
-              details: results // Отправляем все детали на фронтенд для отображения
+              details: results
             };
           }
           return {
             success: true,
-            txids: successfulTxs.map(r => r.txid!), // Возвращаем массив всех txid
+            txids: successfulTxs.map(r => r.txid!),
             details: results
           };
         }
@@ -482,7 +475,7 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
 
           const txids = await sendKaspaSingleToMultiple(
               senderPrivateKey,
-              recipientDetails, // Передаем ВЕСЬ массив получателей
+              recipientDetails,
               feeInSompi
           );
           await postTransactionActions();
@@ -497,13 +490,12 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
             return { success: false, error: 'Выберите хотя бы один кошелек-отправитель.' };
           }
 
-          // Вызываем нашу новую, правильную функцию
           const results = await sendKaspaMultipleToSingle(
               senderAddresses,
               privateKeysMap,
               recipientDetails[0].address,
-              recipientDetails[0].amount, // Эта сумма будет отправлена с КАЖДОГО кошелька
-              feeInSompi // Эта комиссия будет применена к КАЖДОЙ транзакции
+              recipientDetails[0].amount,
+              feeInSompi
           );
 
           await postTransactionActions();
@@ -516,12 +508,12 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
             return {
               success: false,
               error: `Операция завершена с ошибками. Успешно: ${successfulTxs.length}, с ошибкой: ${failedTxs.length}.`,
-              details: results // Отправляем все детали на фронтенд для отображения
+              details: results
             };
           }
           return {
             success: true,
-            txids: successfulTxs.map(r => r.txid!), // Возвращаем массив всех txid
+            txids: successfulTxs.map(r => r.txid!),
             details: results
           };
         }
@@ -530,14 +522,13 @@ ipcMain.handle('send-funds', async (event, senderAddresses: string[], recipientD
       }
     } catch (error: any) {
       console.error(`Ошибка при отправке Kaspa транзакции: ${error.message}`);
-      // Возвращаем текст ошибки из нашей бизнес-логики, а не системные ошибки
       return { success: false, error: error.message || 'Произошла неизвестная ошибка при отправке транзакции.' };
     }
   }
 
 });
 
-ipcMain.handle('deploy', async (event, { action, payload }) => {
+ipcMain.handle('deploy', async (_event, { action, payload }) => {
   try {
     let txid;
     let isAvailable;
@@ -559,7 +550,7 @@ ipcMain.handle('deploy', async (event, { action, payload }) => {
   }
 });
 
-ipcMain.handle('start-mint', async (event, params: { processId: string; walletAddress: string; ticker: string; mintTimes: number; fee: string }) => {
+ipcMain.handle('start-mint', async (_event, params: { processId: string; walletAddress: string; ticker: string; mintTimes: number; fee: string }) => {
   const { walletAddress } = params;
 
   try {
@@ -570,16 +561,12 @@ ipcMain.handle('start-mint', async (event, params: { processId: string; walletAd
       throw new Error(`Private key not found for address ${walletAddress}`);
     }
 
-    // Создаем колбэк, который будет отправлять данные обратно на фронтенд
     const onProgressCallback = (update: MintProgressUpdate) => {
-      // Убеждаемся, что окно еще существует перед отправкой
       if (win && !win.isDestroyed()) {
         win.webContents.send('mint-progress-update', update);
       }
     };
 
-    // Запускаем процесс в фоне, не дожидаясь его завершения здесь.
-    // Хендлер должен быстро вернуть ответ, а процесс будет жить своей жизнью.
     startMintProcess({
       processId: params.processId,
       privateKey: privateKey,
@@ -588,16 +575,12 @@ ipcMain.handle('start-mint', async (event, params: { processId: string; walletAd
       feeInKas: params.fee,
     }, onProgressCallback);
 
-    // Сразу возвращаем успех, т.к. процесс запущен
     return { success: true };
 
   } catch (e: any) {
-    // Возвращаем ошибку, если не удалось даже запустить процесс
     return { success: false, error: e.message || "Failed to start mint process." };
   }
 });
-
-// Остановка минта (обновленный хендлер)
 ipcMain.handle('stop-mint', async (_event, processId: string) => {
   const success = stopMintProcess(processId);
   if (success) {
@@ -607,44 +590,33 @@ ipcMain.handle('stop-mint', async (_event, processId: string) => {
 });
 
 ipcMain.handle('get-token-info', async (_event, ticker: string) => {
-  // 1. Валидация входных данных
   if (!ticker || ticker.trim() === '') {
     return { success: false, error: 'Invalid ticker provided. Ticker must be a non-empty string.' };
   }
 
   try {
-    // 2. Выполнение запроса к API. Рекомендуется приводить тикер к нижнему регистру,
-    // так как многие системы регистронезависимы.
     const response = await KasplexApi.getToken(ticker.toLowerCase());
 
-    // 3. Анализ ответа от API
     if (response && response.message === 'successful') {
-      // Успешный ответ
       if (Array.isArray(response.result) && response.result.length > 0) {
-        // Токен найден, возвращаем первый ( и единственный) элемент
         return { success: true, data: response.result[0] };
       } else {
-        // Успешный ответ, но массив пуст - токен не найден
         return { success: false, error: `Token with ticker "${ticker}" not found.` };
       }
     } else {
-      // Ответ от API с сообщением об ошибке
       return { success: false, error: response.message || 'API returned an unsuccessful response.' };
     }
   } catch (e: any) {
-    // 4. Обработка сетевых ошибок или других исключений
     console.error(`Error in 'get-token-info' handler for ticker "${ticker}":`, e);
     return { success: false, error: e.message || `Failed to fetch info for ${ticker}. Check your network connection.` };
   }
 });
 
-///KAS.FYI
 ipcMain.handle('get-token-market-info', async (_event, ticker: string) => {
   if (!ticker || typeof ticker !== 'string') {
     return { success: false, error: 'Invalid ticker provided.' };
   }
 
-  // Используем новый, правильный URL
   const apiUrl = `https://api.kaspa.com/krc20/${ticker.toUpperCase()}`;
 
   try {
@@ -652,10 +624,9 @@ ipcMain.handle('get-token-market-info', async (_event, ticker: string) => {
     const response = await fetch(apiUrl);
 
     if (!response.ok) {
-      // API может вернуть 404 для токенов без данных, это не ошибка приложения
       if (response.status === 404) {
         console.warn(`[Proxy] No market data found for ${ticker} (404).`);
-        return { success: true, data: null }; // Успешный ответ, но данных нет
+        return { success: true, data: null };
       }
       throw new Error(`API responded with status: ${response.status}`);
     }
@@ -665,6 +636,58 @@ ipcMain.handle('get-token-market-info', async (_event, ticker: string) => {
 
   } catch (error: any) {
     console.error(`[Proxy] Error fetching data for ${ticker}:`, error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('get-dashboard-stats', async () => {
+  try {
+    const [
+      networkInfo,
+      coinSupplyInfo,
+      hashRateInfo,
+      halvingInfo,
+      marketInfoResponse
+    ] = await Promise.allSettled([
+      KaspaApi.getInfoNetwork(),
+      KaspaApi.getInfoCoinsupply(),
+      KaspaApi.getInfoHashRate(),
+      KaspaApi.getInfoHalving(),
+      fetch('https://api-v2-private.kas.fyi/market', {
+        headers: { 'User-Agent': 'Mozilla/5.0' }
+      })
+    ]);
+
+    const getValue = (result: PromiseSettledResult<any>) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      }
+      console.error('A dashboard API call failed:', result.reason);
+      return null;
+    };
+
+    const marketInfoJson = await (getValue(marketInfoResponse) as Response)?.json();
+
+    const stats = {
+      daaScore: getValue(networkInfo)?.virtualDaaScore,
+      circulatingSupply: getValue(coinSupplyInfo)?.circulatingSupply,
+      maxSupply: getValue(coinSupplyInfo)?.maxSupply,
+      hashrate: getValue(hashRateInfo)?.hashrate,
+      nextHalvingTimestamp: getValue(halvingInfo)?.nextHalvingTimestamp,
+      nextHalvingDate: getValue(halvingInfo)?.nextHalvingDate,
+      nextReward: getValue(halvingInfo)?.nextHalvingAmount,
+      // Рыночные данные
+      price: marketInfoJson?.price,
+      priceChange24h: marketInfoJson?.priceChange24h,
+      volume24h: marketInfoJson?.volume24h,
+      marketCap: marketInfoJson?.marketCap,
+      rank: marketInfoJson?.rank,
+    };
+
+    return { success: true, data: stats };
+
+  } catch (error: any) {
+    console.error("Error fetching dashboard stats:", error);
     return { success: false, error: error.message };
   }
 });
@@ -715,7 +738,7 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error("FATAL ERROR: Database failed to initialize.", error);
     app.quit();
-    return; // Выходим
+    return;
   }
   initialPasswordSetupStatus = isPasswordSetupComplete();
   Kiwi.setNetwork(Wasm.NetworkType.Testnet);

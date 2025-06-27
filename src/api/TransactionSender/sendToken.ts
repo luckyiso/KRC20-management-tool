@@ -3,7 +3,7 @@ import {Enum, Kiwi, KRC20, Rpc, Utils, Wasm} from "@kasplex/kiwi";
 
 interface TransactionOutput {
   address: string;
-  amount: string; // Сумма в Sompi
+  amount: string;
 }
 
 interface TransactionResult {
@@ -17,7 +17,7 @@ export async function sendTokenSingleToSingle(
     senderPrivateKey: string,
     recipientDetails: TransactionOutput[],
     feeInSompi: bigint,
-    ticker: string, // <-- НОВЫЙ ПАРАМЕТР
+    ticker: string,
 ): Promise<string> {
   if (!ticker) {
     throw new Error("Не указан тикер токена для отправки.");
@@ -49,19 +49,21 @@ export async function sendTokenSingleToSingle(
       op: Enum.OP.Transfer,
       tick: ticker,
       to: recipient.address,
-      amt: amountInSmallestUnit.toString(), // Сумма токенов, не Sompi!
+      amt: amountInSmallestUnit.toString(),
     });
 
     console.log(`Подготовка к отправке токена ${ticker}. Данные:`, krc20data);
 
-    // Используем специальную функцию для отправки токенов
     const txid = await KRC20.transfer(privateKey, krc20data, feeInSompi);
+    if (!txid) {
+      throw new Error("Transaction failed to broadcast, no TXID returned.");
+    }
 
     console.log(`Транзакция токена ${ticker} успешно отправлена. TXID: ${txid}`);
     return txid;
   } catch (error: any) {
     console.error(`Service: Не удалось отправить токен ${ticker} (SingleToSingle): ${error.message || error}`);
-    throw error; // Пробрасываем ошибку выше
+    throw error;
   }
 }
 
@@ -70,7 +72,7 @@ export async function sendTokenSingleToMultiple(
     senderPrivateKey: string,
     recipientDetails: TransactionOutput[],
     feeInSompi: bigint,
-    ticker: string, // <-- НОВЫЙ ПАРАМЕТР
+    ticker: string,
 ): Promise<string[]> {
   if (!ticker) {
     throw new Error("Не указан тикер токена для отправки.");
@@ -90,7 +92,6 @@ export async function sendTokenSingleToMultiple(
   }
   const createdTxids: string[] = [];
 
-  // Итерируемся по каждому получателю и создаем для него отдельную транзакцию
   for (const recipient of recipientDetails) {
     try {
 
@@ -111,16 +112,17 @@ export async function sendTokenSingleToMultiple(
       console.log(`Отправка ${recipient.amount} ${ticker} на адрес ${recipient.address}...`);
 
       const txid = await KRC20.transfer(privateKey, krc20data, feeInSompi);
-      createdTxids.push(txid);
-      console.log(`Успешно. TXID: ${txid}`);
+      if (txid) {
+        createdTxids.push(txid);
+        console.log(`Успешно. TXID: ${txid}`);
+      } else {
+        throw new Error(`Failed to get TXID for recipient ${recipient.address}`);
+      }
 
-      // Небольшая пауза, чтобы не перегружать ноду
       await new Promise(resolve => setTimeout(resolve, 1000));
 
     } catch (error: any) {
       console.error(`Service: Не удалось отправить токен ${ticker} на адрес ${recipient.address}: ${error.message}`);
-      // В случае ошибки с одним получателем, мы прерываем всю операцию.
-      // Можно изменить логику, чтобы собрать ошибки и продолжить.
       throw new Error(`Ошибка при отправке на ${recipient.address}: ${error.message}`);
     }
   }
@@ -133,7 +135,7 @@ export async function sendTokenMultipleToSingle(
     recipientAddress: string,
     amountPerWalletStr: string,
     feeInSompi: bigint,
-    ticker: string, // <-- НОВЫЙ ПАРАМЕТР
+    ticker: string,
 ): Promise<TransactionResult[]> {
   if (!ticker) {
     throw new Error("Не указан тикер токена для отправки.");
@@ -179,6 +181,10 @@ export async function sendTokenMultipleToSingle(
       });
 
       const txid = await KRC20.transfer(privateKey, krc20data, feeInSompi);
+
+      if (!txid) {
+        throw new Error("Transaction failed, no TXID returned.");
+      }
 
       console.log(`Успешно отправлено ${amountPerWalletStr} ${ticker} с ${senderAddress}. TXID: ${txid}`);
       return { senderAddress, status: 'success', txid: txid };

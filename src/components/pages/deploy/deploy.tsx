@@ -1,6 +1,5 @@
 "use client";
 
-import * as React from "react";
 import { useState, useMemo, useEffect } from "react";
 import { Wallet } from "@/components/provider/wallet-provider.tsx";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card.tsx";
@@ -55,7 +54,6 @@ export function Deploy() {
 
     const debouncedTicker = useDebounce(formState.ticker, 500);
 
-    // Эффект для проверки тикера (без изменений, использует kasplexAction)
     useEffect(() => {
         if (!debouncedTicker || !/^[A-Z]{4,6}$/.test(debouncedTicker)) {
             setIsTickerAvailable(null);
@@ -65,7 +63,8 @@ export function Deploy() {
             setIsCheckingTicker(true);
             try {
                 const result = await window.electronAPI.deploy('checkTicker', { ticker: debouncedTicker });
-                setIsTickerAvailable(result.success ? result.available : false);
+                setIsTickerAvailable(result.success ? (result.available ?? false) : false);
+
             } catch (e) {
                 setIsTickerAvailable(false);
             } finally {
@@ -75,23 +74,17 @@ export function Deploy() {
         checkTicker();
     }, [debouncedTicker]);
 
-    // --- ИЗМЕНЕННЫЙ БЛОК: Эффект для получения KAS баланса ---
     useEffect(() => {
         if (formState.selectedWallet && formState.selectedWallet.balance) {
-            // 1. Берем строку баланса: "246,383.95..."
             const balanceString = formState.selectedWallet.balance;
-            // 2. Удаляем все запятые из строки: "246383.95..."
             const cleanBalanceString = balanceString.replace(/,/g, '');
-            // 3. Теперь парсим "чистую" строку
             const balance = parseFloat(cleanBalanceString) || 0;
 
             setWalletBalance(balance);
         } else {
-            // Если кошелек не выбран или у него нет баланса, сбрасываем
             setWalletBalance(0);
         }
     }, [formState.selectedWallet]);
-    // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
 
     const validation = useMemo(() => {
         const errors: Partial<Record<keyof FormState, string>> = {};
@@ -110,7 +103,6 @@ export function Deploy() {
     }, [formState, walletBalance, isTickerAvailable]);
 
     const handleDeploy = async () => {
-        // ... (логика отправки без изменений, использует kasplexAction) ...
         if (!validation.isFormValid || !validation.hasSufficientBalance) return;
 
         setIsDeploying(true);
@@ -131,7 +123,7 @@ export function Deploy() {
                 setSubmissionSuccess(`Token deployed successfully! TXID: ${result.txid}`);
                 setFormState(INITIAL_FORM_STATE);
             } else {
-                setSubmissionError(result.error);
+                setSubmissionError(result.error ?? null);
             }
         } catch (e: any) {
             setSubmissionError(e.message || "An unknown error occurred.");
@@ -140,7 +132,6 @@ export function Deploy() {
         }
     };
 
-    // JSX разметка остается полностью без изменений
     return (
         <Card>
             <CardHeader>
@@ -148,7 +139,6 @@ export function Deploy() {
                 <CardDescription>Fill in the details to deploy your own token on the Kaspa network.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-                {/* ... вся ваша JSX разметка без изменений ... */}
                 <div>
                     <Label>Deployer Wallet</Label>
                     <SelectWallet
@@ -161,7 +151,6 @@ export function Deploy() {
                         </p>
                     )}
                 </div>
-                {/* ... и так далее ... */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <Label htmlFor="ticker">Ticker</Label>

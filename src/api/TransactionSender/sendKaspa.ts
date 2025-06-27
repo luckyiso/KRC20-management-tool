@@ -3,12 +3,12 @@ import {KaspaTransaction, Kiwi, Rpc, Wasm} from "@kasplex/kiwi";
 
 interface TransactionOutput {
   address: string;
-  amount: string; // Сумма в Sompi
+  amount: string;
 }
 
 interface TransactionOutputFormatted {
   address: string;
-  amount: bigint; // Сумма в Sompi (BigInt)
+  amount: bigint;
 }
 
 interface TransactionResult {
@@ -37,11 +37,8 @@ export async function sendKaspaSingleToSingle(
 
   const recipientOutput = recipientDetails[0];
   const amountInSompi = Wasm.kaspaToSompi(recipientOutput.amount);
-    if (typeof amountInSompi !== 'bigint') {
-      throw new Error(`Не удалось преобразовать сумму получателя '${recipientOutput.amount}' в Sompi. Проверьте формат.`);
-    }
-    if (amountInSompi <= 0) {
-      throw new Error(`Неверная сумма получателя: ${recipientOutput.amount}. Сумма должна быть положительным числом.`);
+    if (typeof amountInSompi !== 'bigint' || amountInSompi <= 0n) {
+      throw new Error(`Не удалось преобразовать сумму получателя '${recipientOutput.amount}' или она не является положительной.`);
     }
 
     const outputsForTransfer: TransactionOutputFormatted[] = [
@@ -52,6 +49,9 @@ export async function sendKaspaSingleToSingle(
     ];
 
     const txid = await KaspaTransaction.transfer(privateKey, outputsForTransfer, feeInSompi);
+    if (!txid) {
+      throw new Error("Транзакция не удалась, ID не был возвращен.");
+    }
     return txid;
   } catch (error: any) {
     console.error(`KaspaTransactionService: Не удалось отправить транзакцию KAS (SingleToSingle): ${error.message || error}`);
@@ -62,9 +62,9 @@ export async function sendKaspaSingleToSingle(
 // --- 2. Кошелек на Несколько (Один Отправитель, Несколько Получателей) ---
 export async function sendKaspaSingleToMultiple(
     senderPrivateKey: string,
-    recipientDetails: TransactionOutput[], // Массив входных данных получателей
-    feeInSompi: bigint, // Комиссия, предположительно, на одну транзакцию
-): Promise<string[]> { // ВАЖНО: Теперь возвращает массив TXID
+    recipientDetails: TransactionOutput[],
+    feeInSompi: bigint,
+): Promise<string[]> {
 
   if (!senderPrivateKey) {
     throw new Error("Приватный ключ отправителя не может быть пустым.");
@@ -73,7 +73,7 @@ export async function sendKaspaSingleToMultiple(
     throw new Error("Не указаны данные получателя для транзакции (SingleToMultiple).");
   }
 
-  const txids: string[] = []; // Массив для хранения всех TXID
+  const txids: string[] = [];
 
   try {
     await Rpc.setInstance(Kiwi.network).connect();
@@ -87,8 +87,7 @@ export async function sendKaspaSingleToMultiple(
       throw new Error("Неверный формат приватного ключа для транзакции KAS.");
     }
 
-    // --- Логика разбиения на партии ---
-    const BATCH_SIZE = 2; // Максимальное количество получателей на одну транзакцию
+    const BATCH_SIZE = 2;
 
     for (let i = 0; i < recipientDetails.length; i += BATCH_SIZE) {
       const batch = recipientDetails.slice(i, i + BATCH_SIZE);
@@ -116,27 +115,22 @@ export async function sendKaspaSingleToMultiple(
       }
 
       try {
-        // Вызываем KaspaTransaction.transfer для каждой партии
-        // Важно: Комиссия (feeInSompi) здесь применяется к *каждой* транзакции в партии.
-        // Если feeInSompi - это общая комиссия, ее нужно будет поделить или пересчитать.
         const batchTxid = await KaspaTransaction.transfer(privateKey, outputsForBatch, feeInSompi);
-        txids.push(batchTxid);
+        if (batchTxid) {
+          txids.push(batchTxid);
+          console.log(`KaspaTransactionService: Партия KAS транзакций успешно отправлена. TXID: ${batchTxid}`);
+        } else {
+          throw new Error(`Не удалось получить ID транзакции для партии, начинающейся с ${batch[0].address}`);
+        }
         await new Promise(resolve => setTimeout(resolve, 1500));
         console.log(`KaspaTransactionService: Партия KAS транзакций успешно отправлена. TXID: ${batchTxid}`);
 
-        // ОПЦИОНАЛЬНО: Добавьте небольшую задержку между транзакциями, чтобы не перегружать ноду
-        // await new Promise(resolve => setTimeout(resolve, 500)); // Задержка 500мс
-
       } catch (batchError: any) {
         console.error(`KaspaTransactionService: Не удалось отправить партию KAS транзакций (SingleToMultiple) для партии, начинающейся с ${batch[0].address}: ${batchError.message || batchError}`);
-        // Здесь можно решить, что делать при ошибке партии:
-        // - Пробросить ошибку сразу (как сейчас), прервав все дальнейшие отправки.
-        // - Или собрать все ошибки и вернуть их вместе с успешными TXID.
         throw new Error(`Не удалось отправить партию KAS транзакций (SingleToMultiple): ${batchError.message || "Неизвестная ошибка"}`);
       }
     }
 
-    // Возвращаем все успешно отправленные TXID
     return txids;
 
   } catch (error: any) {
@@ -167,7 +161,6 @@ export async function sendKaspaMultipleToSingle(
     throw new Error(`Неверная сумма для отправки с каждого кошелька: ${amountPerWalletStr}`);
   }
 
-  // Создаем массив промисов (задач) для каждой транзакции
   const transactionPromises = senderAddresses.map(async (senderAddress): Promise<TransactionResult> => {
     const senderPrivateKey = privateKeysMap.get(senderAddress);
     if (!senderPrivateKey) {
@@ -180,13 +173,13 @@ export async function sendKaspaMultipleToSingle(
 
     try {
 
-      // Используем вашу стандартную функцию `transfer`
       const privateKey = new Wasm.PrivateKey(senderPrivateKey);
-      const recipientDetails = [{ address: recipientAddress, amount: amountPerWalletInSompi }]; // Сумма уже в Sompi
+      const recipientDetails = [{ address: recipientAddress, amount: amountPerWalletInSompi }];
 
-      // Предполагаем, что transfer принимает amount в bigint. Если нет, нужно адаптировать.
       const txid = await KaspaTransaction.transfer(privateKey, recipientDetails, feeInSompi);
-
+      if (!txid) {
+        throw new Error("Transaction failed, no TXID returned.");
+      }
       console.log(`Успешно отправлено ${amountPerWalletStr} KAS с ${senderAddress}. TXID: ${txid}`);
       return {
         senderAddress,
@@ -203,7 +196,5 @@ export async function sendKaspaMultipleToSingle(
       };
     }
   });
-
-  // Ожидаем выполнения всех транзакций параллельно
   return Promise.all(transactionPromises);
 }

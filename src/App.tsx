@@ -27,11 +27,10 @@ export default function Main() {
                 })
                 .catch(err => {
                     console.error('Dashboard: Failed to get initial network from main process:', err);
-                    // TODO: Обработка ошибки загрузки начальной сети (показать сообщение?)
                 });
             const unsubscribe = window.electronAPI.onAppStateUpdate((state) => {
                 console.log(`Received app state update: ${state}`);
-                setAppState(state); // Обновляем состояние приложения
+                setAppState(state);
             });
             return () => {
                 console.log("Cleaning up app state update listener...");
@@ -52,17 +51,13 @@ export default function Main() {
                 setIsMainnet(checked);
             } catch (err: any) {
                 console.error('Failed to set network in main process:', err);
-                // Опционально: можно здесь откатить состояние свитча,
-                // если вы хотите, чтобы он возвращался в исходное положение при ошибке.
-                // Например: setIsMainnet(!checked);
             } finally {
-                setIsNetworkSwitching(false); // Снимаем блокировку в конце, независимо от результата
+                setIsNetworkSwitching(false);
                 console.log(isNetworkSwitching)
             }
         } else {
             console.warn('Electron IPC API (window.electronAPI) not available. Cannot change network.');
-            // Обработка случая без ElectronAPI, возможно, показать ошибку пользователю
-            setIsMainnet(!checked); // Возможно, откатываем свитч, так как действие не выполнено
+            setIsMainnet(!checked);
         }
     };
 
@@ -95,8 +90,8 @@ export default function Main() {
                         <Separator orientation="vertical" className="mr-2 h-4"/>
                         <span>Testnet</span>
                         <Switch
-                            checked={isMainnet} // Привязываем текущее состояние свитча
-                            onCheckedChange={handleNetworkChange} // Привязываем обработчик изменения
+                            checked={isMainnet}
+                            onCheckedChange={handleNetworkChange}
                             disabled={isNetworkSwitching}
                         />
                         <span>Mainnet</span>

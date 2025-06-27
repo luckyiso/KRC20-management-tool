@@ -1,5 +1,5 @@
-import { ipcRenderer, contextBridge } from 'electron'
-import {KaspaWalletToken} from "@/api/BalanceChecker/krc20-balance.ts";
+import { ipcRenderer, contextBridge, IpcRendererEvent } from 'electron';
+import { KaspaWalletToken } from "@/api/BalanceChecker/krc20-balance.ts";
 
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
@@ -19,10 +19,6 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
-
-  // You can expose other APTs you need here.
-  // ...
-
 })
 
 export type Wallet = {
@@ -30,17 +26,17 @@ export type Wallet = {
   name: string;
   address: string;
   balance: string;
+  withdrawal: 0 | 1;
 }
 
 
 contextBridge.exposeInMainWorld('electronAPI', {
-
   setNetwork: (network: string) => ipcRenderer.invoke('set-network', network),
   getInitialNetwork: () => ipcRenderer.invoke('get-initial-network'),
   setupPassword: (password: string) => ipcRenderer.invoke('create-password', password),
   login: (password: string) => ipcRenderer.invoke('login', password),
   getWallets: () => ipcRenderer.invoke('get-wallets'),
-  getPrivateKeys: (addresses: string[]): Promise<Map<string, string>> => ipcRenderer.invoke('get-private-keys', addresses),
+  getPrivateKeys: (addresses: string[]): Promise<[string, string][]> => ipcRenderer.invoke('get-private-keys', addresses),
   createWallet: (name?: string) => ipcRenderer.invoke('create-wallet', name),
   importWallet: (key: string, name: string) => ipcRenderer.invoke('import-wallet', key, name),
   deleteWallet: (address: string) => ipcRenderer.invoke('delete-wallet', address),
@@ -60,28 +56,33 @@ contextBridge.exposeInMainWorld('electronAPI', {
   stopMint: (processId: string) => ipcRenderer.invoke('stop-mint', processId),
   getCurrentNetwork: () => ipcRenderer.invoke('get-current-network'),
   getTokenMarketInfo: (ticker: string) => ipcRenderer.invoke('get-token-market-info', ticker),
+  getDashboardStats: () => ipcRenderer.invoke('get-dashboard-stats'),
+
 
   onMintProgress: (callback: (update: any) => void) => {
-    const handler = (event, update) => callback(update);
+    const handler = (_event: IpcRendererEvent, update: any) => callback(update);
     ipcRenderer.on('mint-progress-update', handler);
-    // Возвращаем функцию для отписки, чтобы избежать утечек памяти
     return () => {
       ipcRenderer.removeListener('mint-progress-update', handler);
     };
   },
+
   onAppStateUpdate: (callback: (state: 'create-password' | 'login' | 'dashboard') => void) => {
-    ipcRenderer.on('app-state-update', (event, state) => callback(state));
-    // Возвращаем функцию для очистки слушателя
-    return () => { ipcRenderer.off('app-state-update', callback); };
-  },
-  onWalletsUpdated: (callback: (wallets: Wallet[]) => void) => {
-    const subscription = (event, wallets: Wallet[]) => callback(wallets);
-    // Подписываемся на новый канал
-    ipcRenderer.on('wallets-updated', subscription);
-    // Возвращаем функцию для отписки
+    const handler = (_event: IpcRendererEvent, state: 'create-password' | 'login' | 'dashboard') => {
+      callback(state);
+    };
+    ipcRenderer.on('app-state-update', handler);
+
     return () => {
-      console.log("Unsubscribing from wallets-updated");
+      ipcRenderer.off('app-state-update', handler);
+    };
+  },
+
+  onWalletsUpdated: (callback: (wallets: Wallet[]) => void) => {
+    const subscription = (_event: IpcRendererEvent, wallets: Wallet[]) => callback(wallets);
+    ipcRenderer.on('wallets-updated', subscription);
+    return () => {
       ipcRenderer.off('wallets-updated', subscription);
     };
   },
-})
+});

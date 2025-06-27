@@ -13,7 +13,6 @@ import {
     SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-// This is sample data.
 const items = [
       {
         title: "Dashboard",
@@ -46,7 +45,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const location = useLocation()
     const currentPath = location.pathname
 
-    // Function to check if a route is active
     const isRouteActive = (route: string) => {
         return currentPath === route || currentPath.startsWith(`${route}/`)
     }

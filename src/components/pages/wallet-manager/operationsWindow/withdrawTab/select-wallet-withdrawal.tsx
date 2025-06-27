@@ -1,9 +1,8 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { ChevronsUpDown } from "lucide-react"
 
-import { cn } from "@/lib/utils.ts"
 import { Button } from "@/components/ui/button.tsx"
 import {
     Command,
@@ -22,13 +21,10 @@ import {
 import { useWallets, Wallet } from "@/components/provider/wallet-provider.tsx";
 import {Checkbox} from "@/components/ui/checkbox.tsx";
 
-interface SelectWalletWithdrawalProps { // Переименовал, чтобы было яснее
-    // Опциональный пропс: адрес кошелька, который нужно исключить из списка (например, кошелек-источник)
+interface SelectWalletWithdrawalProps {
     excludeWalletAddress?: string | null;
-    // Опциональный пропс, если вы хотите получать выбранный кошелек обратно в родительский компонент
     onSelectWallet: (wallet: Wallet | null) => void;
-    // Опциональный пропс для начального выбранного кошелька по адресу
-    initialSelectedWalletAddress?: string; // Сделал опциональным
+    initialSelectedWalletAddress?: string;
 }
 
 export function SelectWalletWithdrawal({ excludeWalletAddress, onSelectWallet, initialSelectedWalletAddress }: SelectWalletWithdrawalProps) {
@@ -40,18 +36,14 @@ export function SelectWalletWithdrawal({ excludeWalletAddress, onSelectWallet, i
     React.useEffect(() => {
     if (initialSelectedWalletAddress && initialSelectedWalletAddress !== selectedValue) {
         setSelectedValue(initialSelectedWalletAddress);
-        // Если initialSelectedWalletAddress изменился и не совпадает с текущим,
-        // вызываем onSelectWallet с соответствующим объектом кошелька.
         const walletToSelect = wallets.find(w => w.address === initialSelectedWalletAddress);
         if (walletToSelect) {
             onSelectWallet(walletToSelect);
         }
     }
-    // Также, если excludeWalletAddress изменился, и выбранный кошелек теперь исключен,
-    // нужно сбросить selectedValue и onSelectWallet(null).
     if (excludeWalletAddress && selectedValue === excludeWalletAddress) {
-        setSelectedValue(""); // Сбросить выбор
-        onSelectWallet(null); // Сообщить родителю о сбросе
+        setSelectedValue("");
+        onSelectWallet(null);
     }
 }, [initialSelectedWalletAddress, excludeWalletAddress, wallets, onSelectWallet, selectedValue]);
 
@@ -60,7 +52,6 @@ export function SelectWalletWithdrawal({ excludeWalletAddress, onSelectWallet, i
             return [];
         }
 
-        // Применяем фильтрацию по excludeWalletAddress
         const filtered = wallets.filter(wallet =>
             excludeWalletAddress ? wallet.address !== excludeWalletAddress : true
         );
@@ -70,11 +61,11 @@ export function SelectWalletWithdrawal({ excludeWalletAddress, onSelectWallet, i
             label: wallet.name || wallet.address,
             originalWallet: wallet
         }));
-    }, [wallets, isLoadingWallets, errorLoadingWallets, excludeWalletAddress]); // Добавили excludeWalletAddress в зависимости
+    }, [wallets, isLoadingWallets, errorLoadingWallets, excludeWalletAddress]);
 
     const selectedWalletLabel = React.useMemo(() => {
         const foundWallet = formattedWallets.find((wallet) => wallet.value === selectedValue);
-        return foundWallet ? foundWallet.label : "Select recipient wallet..."; // Изменил текст по умолчанию
+        return foundWallet ? foundWallet.label : "Select recipient wallet...";
     }, [selectedValue, formattedWallets]);
 
     return (
@@ -105,27 +96,23 @@ export function SelectWalletWithdrawal({ excludeWalletAddress, onSelectWallet, i
                             <CommandGroup>
                                 {formattedWallets.map((wallet) => (
                                     <CommandItem
-                                        key={wallet.value} // Используем адрес как ключ
-                                        value={wallet.label} // Используем label для поиска в CommandInput (или можно wallet.value)
+                                        key={wallet.value}
+                                        value={wallet.label}
                                         onSelect={(currentLabel) => {
                                             const found = formattedWallets.find(w => w.label.toLowerCase() === currentLabel.toLowerCase());
                                             if (found) {
                                                 setSelectedValue(found.value);
                                                 setOpen(false);
-                                                onSelectWallet(found.originalWallet); // Вызываем колбэк с выбранным кошельком
+                                                onSelectWallet(found.originalWallet);
                                             } else {
-                                                // Если ничего не найдено (может произойти при очистке ввода)
                                                 setSelectedValue("");
                                                 onSelectWallet(null);
                                             }
                                         }}
                                     >
                                         <Checkbox
-                                            // isChecked будет true, если текущий кошелек выбран
                                             checked={selectedValue === wallet.value}
-                                            // disabled здесь не нужен, так как выбор происходит через onSelect CommandItem
-                                            // onCheckedChange здесь не нужен, так как CommandItem сам обрабатывает выбор
-                                            className="mr-2" // Отступ справа от чекбокса
+                                            className="mr-2"
                                         />
                                         {wallet.label}
                                     </CommandItem>

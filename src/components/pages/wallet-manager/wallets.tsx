@@ -32,7 +32,6 @@ import {GetPrivateKey} from "@/components/forms/get-private-key.tsx";
 export function Wallets() {
     const { wallets: walletsData, isLoadingWallets } = useWallets(0);
 
-    // Эти состояния таблицы остаются локальными, так как они относятся только к UI таблицы
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
@@ -41,8 +40,8 @@ export function Wallets() {
     const [isRenameDialogOpen, setIsRenameDialogOpen] = React.useState(false);
     const [walletToRename, setWalletToRename] = React.useState<{ address: string; name: string } | null>(null);
 
-    const [isGetPrivateKeyDialogOpen, setIsGetPrivateKeyDialogOpen] = React.useState(false); // Исправлено имя переменной
-    const [walletToGetPrivateKey, setWalletToGetPrivateKey] = React.useState<{ address: string } | null>(null); // Исправлено имя переменной
+    const [isGetPrivateKeyDialogOpen, setIsGetPrivateKeyDialogOpen] = React.useState(false);
+    const [walletToGetPrivateKey, setWalletToGetPrivateKey] = React.useState<{ address: string } | null>(null);
 
     const handleCreateWallet = async () => {
         console.log("Wallets: Create wallet button clicked");
@@ -71,8 +70,6 @@ export function Wallets() {
                 const success = await window.electronAPI.deleteWallet(address);
                 if (success) {
                     console.log(`Wallet ${address} deleted successfully.`);
-                    // После успешного удаления, возможно, нужно обновить список кошельков
-                    // refetchWallets(); // Хук useWallets должен сам обновиться через IPC-событие
                 } else {
                     console.error(`Failed to delete wallet ${address}.`);
                 }
@@ -102,7 +99,7 @@ export function Wallets() {
 
 
     const table = useReactTable({
-        data: walletsData, // ### Используем данные из состояния ###
+        data: walletsData,
         columns: columns,
         onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
@@ -137,8 +134,8 @@ export function Wallets() {
                         <div className="flex items-center gap-2 ml-auto">
                             <ImportWallet/>
                             <Button variant="outline"
-                                    onClick={handleCreateWallet} // Привязываем обработчик создания
-                                    disabled={isCreatingWallet} // Отключаем во время создания
+                                    onClick={handleCreateWallet}
+                                    disabled={isCreatingWallet}
                             >
                                 Create wallet
                             </Button>
@@ -168,7 +165,7 @@ export function Wallets() {
                                 {!isLoadingWallets && table.getRowModel().rows?.length === 0 ? (
                                     <TableRow>
                                         <TableCell
-                                            colSpan={columns.length} // Правильное количество колонок
+                                            colSpan={columns.length}
                                             className="h-24 text-center"
                                         >
                                             Кошельки не найдены.
@@ -233,7 +230,7 @@ export function Wallets() {
                         isOpen={isGetPrivateKeyDialogOpen}
                         onClose={() => {
                             setIsGetPrivateKeyDialogOpen(false);
-                            setWalletToGetPrivateKey(null); // Очищаем состояние после закрытия
+                            setWalletToGetPrivateKey(null);
                         }}
                     />
                 )}

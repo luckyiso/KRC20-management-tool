@@ -1,13 +1,13 @@
-// src/components/withdrawTab.tsx
+
 "use client"
 
 import * as React from "react";
-import { SelectWallet } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-wallet.tsx"; // Проверьте путь
-import { SelectFund, Fund } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-fund.tsx";   // Проверьте путь
+import { SelectWallet } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-wallet.tsx";
+import { SelectFund, Fund } from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-fund.tsx";
 import { Wallet } from "@/components/provider/wallet-provider.tsx";
 import {Label} from "@/components/ui/label.tsx";
 import {SelectWalletWithdrawal} from "@/components/pages/wallet-manager/operationsWindow/withdrawTab/select-wallet-withdrawal.tsx";
-import {Input} from "@/components/ui/input.tsx"; // Проверьте путь (для Wallet type)
+import {Input} from "@/components/ui/input.tsx";
 import { NumericFormat } from 'react-number-format';
 import {Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle} from "@/components/ui/card.tsx";
 import {Button} from "@/components/ui/button.tsx";
@@ -22,21 +22,17 @@ export function WithdrawTab() {
     const [selectedRecipientWallet, setSelectedRecipientWallet] = React.useState<Wallet | null>(null);
     const [amount, setAmount] = React.useState<string>("");
     const [numericAmount, setNumericAmount] = React.useState<number | null>(null);
-    const [isSending, setIsSending] = React.useState(false); // Состояние для загрузки отправки
-    const [transactionError, setTransactionError] = React.useState<string | null>(null); // Состояние для ошибок
-    const [transactionSuccess, setTransactionSuccess] = React.useState<string | null>(null); // Состояние для успеха
+    const [isSending, setIsSending] = React.useState(false);
+    const [transactionError, setTransactionError] = React.useState<string | null>(null);
+    const [transactionSuccess, setTransactionSuccess] = React.useState<string | null>(null);
 
-
-    // Колбэк, который будет вызван SelectWallet при выборе кошелька
     const handleSelectWallet = React.useCallback((wallet: Wallet | null) => {
         console.log("Selected Wallet in parent:", wallet);
         setSelectedWallet(wallet);
-        // Сбрасываем выбранный фонд при смене кошелька, так как фонды будут новые
         setSelectedFund(null);
 
     }, []);
 
-    // Колбэк, который будет вызван SelectFund при выборе фонда
     const handleSelectFund = React.useCallback((fund: Fund | null) => {
         console.log("Selected Fund in parent:", fund);
         setSelectedFund(fund);
@@ -48,13 +44,11 @@ export function WithdrawTab() {
     }, []);
 
     const handleAmountChange = React.useCallback((values: {
-        formattedValue: string; // "1,234.56"
-        value: string;         // "1234.56" (неформатированное число как строка)
-        floatValue?: number;   // 1234.56 (неформатированное число как float)
+        formattedValue: string;
+        value: string;
+        floatValue?: number;
     }) => {
-        // Сохраняем форматированное значение для отображения
         setAmount(values.formattedValue);
-        // Сохраняем чистое числовое значение для расчетов
         setNumericAmount(values.floatValue !== undefined ? values.floatValue : null);
     }, []);
 
@@ -94,8 +88,6 @@ export function WithdrawTab() {
             );
 
             if (txid.success) {
-
-                // ... сброс полей
             } else {
                 setTransactionError(`Ошибка транзакции: ${txid.error}`);
             }
@@ -124,16 +116,15 @@ export function WithdrawTab() {
                                 onSelectFund={handleSelectFund}/>
                     <Label>Ammount</Label>
                     <NumericFormat
-                        // Это пропсы для NumericFormat
                         value={amount}
                         onValueChange={handleAmountChange}
-                        thousandSeparator=" " // Разделитель тысяч (пробел)
-                        decimalSeparator="." // Десятичный разделитель (точка)
-                        decimalScale={8} // Максимальное количество знаков после запятой (для KAS до 8)
-                        fixedDecimalScale={false} // Если true, всегда будет decimalScale знаков (например, 100.00)
-                        allowNegative={false} // Запретить отрицательные числа
+                        thousandSeparator=" "
+                        decimalSeparator="."
+                        decimalScale={8}
+                        fixedDecimalScale={false}
+                        allowNegative={false}
                         placeholder="0"
-                        customInput={ShadcnInput} // Создадим маленькую обертку ниже
+                        customInput={ShadcnInput}
                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     />
                     <Label>To</Label>
@@ -147,8 +138,6 @@ export function WithdrawTab() {
                     {transactionSuccess && (
                         <div className="text-green-500 text-sm">{transactionSuccess}</div>
                     )}
-
-                    {/* Кнопка "Send" будет внутри CardFooter */}
                 </div>
             </CardContent>
             <CardFooter>

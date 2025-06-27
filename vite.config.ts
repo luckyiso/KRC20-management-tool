@@ -17,10 +17,6 @@ export default defineConfig({
         vite: {
           build: {
             rollupOptions: {
-              // ### ### ### КРИТИЧЕСКИ ВАЖНАЯ НАСТРОЙКА: ВНЕШНИЕ ЗАВИСИМОСТИ ### ### ###
-              // Добавляем 'better-sqlite3' в список внешних зависимостей.
-              // Это означает, что Rollup НЕ будет включать его в бандл main.js.
-              // Electron загрузит его как обычный Node.js модуль во время выполнения.
               external: ['better-sqlite3', 'websocket', '@kasplex/kiwi'],
             }
           }

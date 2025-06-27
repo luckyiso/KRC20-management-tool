@@ -21,11 +21,8 @@ import {
 import { useWallets, Wallet } from "@/components/provider/wallet-provider.tsx";
 
 interface SelectWalletProps {
-    // Если вам нужно фильтровать кошельки (например, только для вывода, или только обычные)
     filterWalletsBy?: 0;
-    // Опциональный пропс, если вы хотите получать выбранный кошелек обратно в родительский компонент
     onSelectWallet?: (wallet: Wallet | null) => void;
-    // Опциональный пропс для начального выбранного кошелька
     initialSelectedWalletAddress?: string;
 }
 
@@ -43,16 +40,16 @@ export function SelectWallet({onSelectWallet, initialSelectedWalletAddress }: Se
 
     const formattedWallets = React.useMemo(() => {
         if (isLoadingWallets) {
-            return []; // Или можно вернуть заглушку, например, { value: "loading", label: "Loading wallets..." }
+            return [];
         }
         if (errorLoadingWallets) {
             console.error("Error loading wallets for SelectWallet:", errorLoadingWallets);
-            return []; // Или вернуть ошибку, например, { value: "error", label: "Error loading wallets" }
+            return [];
         }
         return wallets.map(wallet => ({
-            value: wallet.address, // Используем адрес как уникальное значение
-            label: wallet.name || wallet.address, // Отображаем имя, если есть, иначе адрес
-            originalWallet: wallet // Сохраняем весь объект кошелька для onSelectWallet
+            value: wallet.address,
+            label: wallet.name || wallet.address,
+            originalWallet: wallet
         }));
     }, [wallets, isLoadingWallets, errorLoadingWallets]);
 
@@ -89,16 +86,15 @@ export function SelectWallet({onSelectWallet, initialSelectedWalletAddress }: Se
                             <CommandGroup>
                                 {formattedWallets.map((wallet) => (
                                     <CommandItem
-                                        key={wallet.value} // Используем адрес как ключ
-                                        value={wallet.label} // Используем label для поиска в CommandInput (или можно wallet.value)
+                                        key={wallet.value}
+                                        value={wallet.label}
                                         onSelect={(currentLabel) => {
-                                            // Находим кошелек по label, который был выбран
                                             const found = formattedWallets.find(w => w.label.toLowerCase() === currentLabel.toLowerCase());
                                             if (found) {
-                                                setSelectedValue(found.value); // Устанавливаем адрес
-                                                setOpen(false); // Закрываем Popover
+                                                setSelectedValue(found.value);
+                                                setOpen(false);
                                                 if (onSelectWallet) {
-                                                    onSelectWallet(found.originalWallet); // Вызываем колбэк с выбранным кошельком
+                                                    onSelectWallet(found.originalWallet);
                                                 }
                                             }
                                         }}

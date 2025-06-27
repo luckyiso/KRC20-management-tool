@@ -1,4 +1,4 @@
-// src/components/operationsWindow/consolidateTab/select-wallet-with-fund.tsx
+
 "use client"
 
 import * as React from "react"
@@ -8,20 +8,20 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover.tsx"
 import { useWallets, Wallet } from "@/components/provider/wallet-provider.tsx"
 import { Checkbox } from "@/components/ui/checkbox.tsx"
-import { FundWithIndividualBalances } from "./select-fund-all.tsx" // Убедитесь, что тип импортирован
+import { FundWithIndividualBalances } from "./select-fund-all.tsx"
 
 export interface SelectWalletWithFundProps {
     id?: string;
-    onSelectWallets?: (wallets: Wallet[]) => void; // Для мульти-выбора
-    onSelectWallet?: (wallet: Wallet | null) => void; // Для одиночного выбора
-    initialSelectedWalletAddresses?: string[]; // Для мульти-выбора
-    initialSelectedWalletAddress?: string; // Для одиночного выбора
+    onSelectWallets?: (wallets: Wallet[]) => void;
+    onSelectWallet?: (wallet: Wallet | null) => void;
+    initialSelectedWalletAddresses?: string[];
+    initialSelectedWalletAddress?: string;
     excludeWalletAddresses?: string[];
     activeAsset?: FundWithIndividualBalances | null;
     disabled?: boolean;
     className?: string;
     placeholderText?: string;
-    isMultiSelect: boolean; // <-- Новый пропс для определения режима
+    isMultiSelect: boolean;
 }
 
 export function SelectWalletWithFund({
@@ -39,12 +39,10 @@ export function SelectWalletWithFund({
     const { wallets: allWalletsFromContext, isLoadingWallets, errorLoadingWallets } = useWallets(0);
     const [open, setOpen] = React.useState(false);
 
-    // Внутреннее состояние для хранения выбранных адресов (массив даже для одиночного выбора)
     const [selectedValues, setSelectedValues] = React.useState<string[]>(
         isMultiSelect ? initialSelectedWalletAddresses : (initialSelectedWalletAddress ? [initialSelectedWalletAddress] : [])
     );
 
-    // Синхронизация с внешними изменениями
     React.useEffect(() => {
         const initial = isMultiSelect ? initialSelectedWalletAddresses : (initialSelectedWalletAddress ? [initialSelectedWalletAddress] : []);
         if (JSON.stringify(initial) !== JSON.stringify(selectedValues)) {
@@ -57,29 +55,24 @@ export function SelectWalletWithFund({
 
         let filtered = allWalletsFromContext;
 
-        // 1. Фильтр по активному активу (если он есть)
         if (activeAsset && activeAsset.individualBalances) {
             const holdingAddresses = new Set(Array.from(activeAsset.individualBalances.keys()));
             filtered = filtered.filter(wallet => holdingAddresses.has(wallet.address));
         } else if (activeAsset) {
-            // Актив выбран, но балансов нет - значит, ни один кошелек не подходит
             return [];
         }
 
-        // 2. Фильтр по исключенным адресам
         const excludedSet = new Set(excludeWalletAddresses);
         return filtered.filter(wallet => !excludedSet.has(wallet.address));
 
     }, [allWalletsFromContext, isLoadingWallets, excludeWalletAddresses, activeAsset]);
 
-    // Эффект для очистки выбора, если доступные кошельки изменились
     React.useEffect(() => {
         const availableAddressesSet = new Set(availableWallets.map(w => w.address));
         const newSelected = selectedValues.filter(v => availableAddressesSet.has(v));
 
         if (newSelected.length !== selectedValues.length) {
             setSelectedValues(newSelected);
-            // Уведомляем родителя об изменениях
             if (isMultiSelect && onSelectWallets) {
                 const selectedObjs = newSelected.map(addr => availableWallets.find(w => w.address === addr)).filter(Boolean) as Wallet[];
                 onSelectWallets(selectedObjs);
@@ -100,12 +93,11 @@ export function SelectWalletWithFund({
                 : [...selectedValues, walletToToggle.address];
         } else {
             newSelectedValues = [walletToToggle.address];
-            setOpen(false); // Закрываем popover при одиночном выборе
+            setOpen(false);
         }
 
         setSelectedValues(newSelectedValues);
 
-        // Вызываем соответствующий колбэк
         if (isMultiSelect && onSelectWallets) {
             const selectedWalletObjects = newSelectedValues
                 .map(address => allWalletsFromContext.find(w => w.address === address))
@@ -166,7 +158,6 @@ export function SelectWalletWithFund({
                                         )}
                                         <div className="flex justify-between w-full items-center">
                                             <span className="truncate">{wallet.name || `${wallet.address.slice(0, 6)}...${wallet.address.slice(-4)}`}</span>
-                                            {/* Отображаем баланс */}
                                             <span className="text-xs text-muted-foreground ml-2">{wallet.balance} KAS</span>
                                         </div>
                                     </CommandItem>

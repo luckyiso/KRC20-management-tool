@@ -1,18 +1,15 @@
 "use client";
 
-import * as React from "react";
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import {MintProcess} from "@/components/pages/mint-tokens/mint-page.tsx";
 
-// --- КАРТОЧКА ОДНОГО ПРОЦЕССА (УПРОЩЕННАЯ) ---
 const MintProcessCard = ({ process, onStop }: {
     process: MintProcess;
     onStop: (id: string) => void;
 }) => {
-    // Вычисляем прогресс
     const { progressPercent, finished, target } = useMemo(() => {
         const finished = process.currentMints;
         const target = process.targetMints;
@@ -20,7 +17,6 @@ const MintProcessCard = ({ process, onStop }: {
         return { progressPercent: percent, finished, target };
     }, [process.currentMints, process.targetMints]);
 
-    // Вычисляем оставшийся саплай
     const remainingSupply = useMemo(() => {
         const tokenInfo = process.tokenInfo;
         if (!tokenInfo || !tokenInfo.max || !tokenInfo.minted) {
@@ -73,20 +69,16 @@ const MintProcessCard = ({ process, onStop }: {
                     <div><span className="text-muted-foreground">Current Fee:</span> {process.fee} KAS</div>
                 </div>
 
-                {/* Блок для отображения ошибок остается */}
                 {process.error && <p className="text-red-500 text-xs mt-2">{process.error}</p>}
 
-                {/* Блок для изменения комиссии полностью удален */}
             </CardContent>
         </Card>
     );
 };
 
-// --- ОСНОВНОЙ КОМПОНЕНТ-КОНТЕЙНЕР (УПРОЩЕННЫЙ) ---
 interface MintOperationsProps {
     processes: MintProcess[];
     onStop: (id: string) => void;
-    // prop onUpdateFee удален
 }
 
 export function CurrentMints({ processes, onStop }: MintOperationsProps) {
@@ -99,7 +91,6 @@ export function CurrentMints({ processes, onStop }: MintOperationsProps) {
                         key={proc.id}
                         process={proc}
                         onStop={onStop}
-                        // prop onUpdateFee удален
                     />
                 ))
             ) : (
